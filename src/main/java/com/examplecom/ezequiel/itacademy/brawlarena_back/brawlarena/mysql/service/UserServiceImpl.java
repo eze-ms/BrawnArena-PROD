@@ -1,0 +1,60 @@
+package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.service;
+
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.NicknameAlreadyExistsException;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
+
+@Service
+public class UserServiceImpl implements UserService {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+
+
+    @Autowired
+    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    @Override
+    public Mono<User> findById(Long id) {
+        return userRepository.findById(id)
+                .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no encontrado.")))
+                .doOnNext(user -> logger.info("Usuario encontrado: {}", user))
+                .doOnError(e -> logger.error("Error al buscar usuario: {}", e.getMessage()));
+    }
+
+    @Override
+    public Mono<User> findByNickname(String nickname) {
+        return userRepository.findByNickname(nickname)
+                .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no encontrado.")))
+                .doOnNext(user -> logger.info("Usuario encontrado: {}", user))
+                .doOnError(e -> logger.error("Error al buscar usuario: {}", e.getMessage()));
+    }
+
+    @Override
+    public Mono<User> save(User user) {
+        return userRepository.findByNickname(user.getNickname())
+                .flatMap(existingUser -> {
+                    logger.warn("El nickname {} ya está en uso", user.getNickname());
+                    return Mono.<User>error(new NicknameAlreadyExistsException("El nickname ya está en uso"));
+                })
+                .switchIfEmpty(Mono.defer(() -> {
+                    logger.info("Registrando nuevo usuario: {}", user.getNickname());
+                    user.setPassword(passwordEncoder.encode(user.getPassword()));
+                    return userRepository.save(user);
+                }))
+                .doOnNext(savedUser -> logger.info("Usuario guardado: {}", savedUser))
+                .doOnError(e -> logger.error("Error al registrar el usuario: {}", e.getMessage()));
+    }
+
+}
