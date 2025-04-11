@@ -57,4 +57,17 @@ public class UserServiceImpl implements UserService {
                 .doOnError(e -> logger.error("Error al registrar el usuario: {}", e.getMessage()));
     }
 
+    @Override
+    public Mono<User> updateTokens(String nickname, int newTokens) {
+        return userRepository.findByNickname(nickname)
+                .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no encontrado.")))
+                .flatMap(user -> {
+                    logger.info("Actualizando tokens para usuario {}: {} → {}", nickname, user.getTokens(), newTokens);
+                    user.setTokens(newTokens);
+                    return userRepository.save(user);
+                })
+                .doOnNext(updatedUser -> logger.info("Tokens actualizados para usuario: {}", updatedUser.getNickname()))
+                .doOnError(e -> logger.error("Error al actualizar tokens: {}", e.getMessage()));
+    }
+
 }

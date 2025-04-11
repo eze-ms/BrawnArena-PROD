@@ -7,4 +7,6 @@ public interface UserService {
     Mono<User> findById(Long id);
     Mono<User> findByNickname(String nickname);
     Mono<User> save(User user);
+    Mono<User> updateTokens(String nickname, int newTokens);
+
 }

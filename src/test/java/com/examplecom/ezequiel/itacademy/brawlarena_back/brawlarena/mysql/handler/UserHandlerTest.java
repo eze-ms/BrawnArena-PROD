@@ -32,25 +32,25 @@ class UserHandlerTest {
     private UserHandler userHandler;
 
     // Método auxiliar único para ambos tests
-    private ServerRequest createMockRequest(String username, User userToReturn) {
+    private ServerRequest createMockRequest(String username, Object requestBody) {
         Authentication auth = Mockito.mock(Authentication.class);
         when(auth.getName()).thenReturn(username);
 
-        // Crea un mock del ServerRequest
         ServerRequest request = Mockito.mock(ServerRequest.class);
-
-        // Si necesitas el cuerpo de la solicitud (en caso de 'registerUser')
-        if (userToReturn != null) {
-            when(request.bodyToMono(User.class)).thenReturn(Mono.just(userToReturn));
-        }
-
-        // Configura el principal (usuario autenticado)
         Mockito.doReturn(Mono.just(auth)).when(request).principal();
+
+        if (requestBody != null) {
+            if (requestBody instanceof User) {
+                when(request.bodyToMono(User.class)).thenReturn(Mono.just((User) requestBody));
+            } else if (requestBody instanceof Integer) {
+                when(request.bodyToMono(Integer.class)).thenReturn(Mono.just((Integer) requestBody));
+            }
+        }
 
         return request;
     }
 
-    //! test de getCurrentUser
+    //! test getCurrentUser
     @Test
     void getCurrentUser_Success() {
         String nickname = "testUser";
@@ -91,6 +91,40 @@ class UserHandlerTest {
                 })
                 .verifyComplete();
     }
+
+    //! test updateUserTokens
+    @Test
+    void updateUserTokens_Success() {
+        String nickname = "testUser";
+        int newTokens = 150;
+        User updatedUser = new User(1L, nickname, "password123", newTokens, Role.USER);
+
+        ServerRequest request = createMockRequest(nickname, newTokens);
+        when(userService.updateTokens(nickname, newTokens)).thenReturn(Mono.just(updatedUser));
+
+        StepVerifier.create(userHandler.updateUserTokens(request))
+                .expectNextMatches(serverResponse -> {
+                    assertEquals(HttpStatus.OK, serverResponse.statusCode());
+                    return true;
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void updateUserTokens_InvalidInput() {
+        String nickname = "testUser";
+        int invalidTokens = -50;
+
+        ServerRequest request = createMockRequest(nickname, invalidTokens);
+        when(userService.updateTokens(nickname, invalidTokens))
+                .thenReturn(Mono.error(new IllegalArgumentException("Tokens no pueden ser negativos")));
+
+        StepVerifier.create(userHandler.updateUserTokens(request))
+                .expectNextMatches(serverResponse -> {
+                    assertEquals(HttpStatus.BAD_REQUEST, serverResponse.statusCode());
+                    return true;
+                })
+                .verifyComplete();
+    }
+
 }
-
-

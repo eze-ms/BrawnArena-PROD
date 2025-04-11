@@ -26,12 +26,28 @@ public class UserHandler {
         return request.principal()
                 .cast(Authentication.class)
                 .map(Authentication::getName)
-                .flatMap(userService::findByNickname)  // Delegamos la búsqueda al servicio
-                .doOnNext(user -> logger.info("Usuario encontrado: {}", user)) // Log no bloqueante
+                .flatMap(userService::findByNickname)
+                .doOnNext(user -> logger.info("Usuario encontrado: {}", user))
                 .flatMap(user -> ServerResponse.ok().bodyValue(user))
-                .doOnError(e -> logger.error("Error al obtener el usuario: {}", e.getMessage())) // Log de error
+                .doOnError(e -> logger.error("Error al obtener el usuario: {}", e.getMessage()))
                 .onErrorResume(e -> ServerResponse.status(HttpStatus.NOT_FOUND)
                         .bodyValue("Usuario no encontrado."));
+    }
+
+    public Mono<ServerResponse> updateUserTokens(ServerRequest request) {
+        return request.principal()
+                .cast(Authentication.class)
+                .map(Authentication::getName)
+                .doOnNext(nickname -> logger.info("Solicitud de actualización de tokens para: {}", nickname))
+                .flatMap(nickname ->
+                        request.bodyToMono(Integer.class)
+                                .doOnNext(tokens -> logger.info("Nuevos tokens recibidos: {}", tokens))
+                                .flatMap(newTokens -> userService.updateTokens(nickname, newTokens))
+                )
+                .doOnNext(user -> logger.info("Tokens actualizados correctamente para: {}", user.getNickname()))
+                .flatMap(updatedUser -> ServerResponse.ok().bodyValue(updatedUser))
+                .doOnError(e -> logger.error("Error al actualizar tokens: {}", e.getMessage()))
+                .onErrorResume(e -> ServerResponse.badRequest().bodyValue(e.getMessage()));
     }
 
 }

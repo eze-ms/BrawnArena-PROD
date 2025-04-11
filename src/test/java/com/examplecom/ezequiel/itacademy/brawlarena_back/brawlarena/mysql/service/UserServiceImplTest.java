@@ -17,7 +17,7 @@ import reactor.test.StepVerifier;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.*;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -38,7 +38,7 @@ class UserServiceImplTest {
         // Arrange
         Long userId = 1L;
         User expectedUser = new User(userId, "testUser", "password", 100, Role.USER);
-        Mockito.when(userRepository.findById(userId)).thenReturn(Mono.just(expectedUser));
+        when(userRepository.findById(userId)).thenReturn(Mono.just(expectedUser));
 
         // Act & Assert
         StepVerifier.create(userService.findById(userId))
@@ -50,7 +50,7 @@ class UserServiceImplTest {
     void findById_WhenUserNotExists_ThrowsException() {
         // Arrange
         Long userId = 99L;
-        Mockito.when(userRepository.findById(userId)).thenReturn(Mono.empty());
+        when(userRepository.findById(userId)).thenReturn(Mono.empty());
 
         // Act & Assert
         StepVerifier.create(userService.findById(userId))
@@ -64,7 +64,7 @@ class UserServiceImplTest {
         // Arrange
         String nickname = "testUser";
         User expectedUser = new User(1L, nickname, "password", 100, Role.USER);
-        Mockito.when(userRepository.findByNickname(nickname)).thenReturn(Mono.just(expectedUser));
+        when(userRepository.findByNickname(nickname)).thenReturn(Mono.just(expectedUser));
 
         // Act & Assert
         StepVerifier.create(userService.findByNickname(nickname))
@@ -76,7 +76,7 @@ class UserServiceImplTest {
     void findByNickname_WhenUserNotExists_ThrowsException() {
         // Arrange
         String nickname = "unknownUser";
-        Mockito.when(userRepository.findByNickname(nickname)).thenReturn(Mono.empty());
+        when(userRepository.findByNickname(nickname)).thenReturn(Mono.empty());
 
         // Act & Assert
         StepVerifier.create(userService.findByNickname(nickname))
@@ -91,9 +91,9 @@ class UserServiceImplTest {
         User newUser = new User(null, "newUser", "rawPassword", 100, Role.USER);
         User savedUser = new User(1L, "newUser", "encodedPassword", 100, Role.USER);
 
-        Mockito.when(userRepository.findByNickname("newUser")).thenReturn(Mono.empty());
-        Mockito.when(passwordEncoder.encode("rawPassword")).thenReturn("encodedPassword");
-        Mockito.when(userRepository.save(any(User.class))).thenReturn(Mono.just(savedUser));
+        when(userRepository.findByNickname("newUser")).thenReturn(Mono.empty());
+        when(passwordEncoder.encode("rawPassword")).thenReturn("encodedPassword");
+        when(userRepository.save(any(User.class))).thenReturn(Mono.just(savedUser));
 
         // Act & Assert
         StepVerifier.create(userService.save(newUser))
@@ -110,7 +110,7 @@ class UserServiceImplTest {
         User existingUser = new User(1L, "existingUser", "encodedPassword", 100, Role.USER);
         User newUser = new User(null, "existingUser", "rawPassword", 100, Role.USER);
 
-        Mockito.when(userRepository.findByNickname("existingUser"))
+        when(userRepository.findByNickname("existingUser"))
                 .thenReturn(Mono.just(existingUser));
 
         // Act & Assert
@@ -121,7 +121,55 @@ class UserServiceImplTest {
                 )
                 .verify();
 
-        Mockito.verify(userRepository, never()).save(any());
-        Mockito.verify(passwordEncoder, never()).encode(anyString());
+        verify(userRepository, never()).save(any());
+        verify(passwordEncoder, never()).encode(anyString());
+    }
+
+    //! Tests para updateTokens
+    @Test
+    void updateTokens_WhenUserExists_ReturnsUpdatedUser() {
+        // Arrange
+        String nickname = "testUser";
+        int newTokens = 200;
+        User originalUser = new User(1L, nickname, "password", 100, Role.USER);
+        User updatedUser = new User(1L, nickname, "password", newTokens, Role.USER);
+
+        when(userRepository.findByNickname(nickname)).thenReturn(Mono.just(originalUser));
+        when(userRepository.save(any(User.class))).thenReturn(Mono.just(updatedUser));
+
+        // Act & Assert
+        StepVerifier.create(userService.updateTokens(nickname, newTokens))
+                .expectNextMatches(user ->
+                        user.getNickname().equals(nickname) &&
+                                user.getTokens() == newTokens
+                )
+                .verifyComplete();
+    }
+
+    @Test
+    void updateTokens_WhenUserNotExists_ThrowsException() {
+        // Arrange
+        String nickname = "unknownUser";
+        when(userRepository.findByNickname(nickname)).thenReturn(Mono.empty());
+
+        // Act & Assert
+        StepVerifier.create(userService.updateTokens(nickname, 100))
+                .expectError(UserNotFoundException.class)
+                .verify();
+    }
+
+    @Test
+    void updateTokens_WhenNegativeTokens_ThrowsException() {
+        // Arrange
+        String nickname = "testUser";
+        User user = new User(1L, nickname, "password", 100, Role.USER);
+        when(userRepository.findByNickname(nickname)).thenReturn(Mono.just(user));
+
+        // Act & Assert
+        StepVerifier.create(userService.updateTokens(nickname, -50))
+                .expectError(IllegalArgumentException.class)
+                .verify();
+
+        verify(userRepository, never()).save(any());
     }
 }
