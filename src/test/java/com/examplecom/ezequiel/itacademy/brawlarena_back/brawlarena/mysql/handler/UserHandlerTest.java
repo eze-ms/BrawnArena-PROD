@@ -18,6 +18,9 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.test.StepVerifier;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
@@ -31,7 +34,7 @@ class UserHandlerTest {
     @InjectMocks
     private UserHandler userHandler;
 
-    // Método auxiliar único para ambos tests
+    // Método auxiliar único para los tests
     private ServerRequest createMockRequest(String username, Object requestBody) {
         Authentication auth = Mockito.mock(Authentication.class);
         when(auth.getName()).thenReturn(username);
@@ -44,9 +47,10 @@ class UserHandlerTest {
                 when(request.bodyToMono(User.class)).thenReturn(Mono.just((User) requestBody));
             } else if (requestBody instanceof Integer) {
                 when(request.bodyToMono(Integer.class)).thenReturn(Mono.just((Integer) requestBody));
+            } else if (requestBody instanceof Long) {
+                when(request.bodyToMono(Long.class)).thenReturn(Mono.just((Long) requestBody));
             }
         }
-
         return request;
     }
 
@@ -54,8 +58,7 @@ class UserHandlerTest {
     @Test
     void getCurrentUser_Success() {
         String nickname = "testUser";
-        User mockUser = new User(1L, nickname, "password123", 100, Role.USER);
-
+        User mockUser = new User(1L, nickname, "pass", 100, Role.USER, List.of());
         ServerRequest request = createMockRequest(nickname, null);
 
         when(userService.findByNickname(nickname)).thenReturn(Mono.just(mockUser));
@@ -97,7 +100,7 @@ class UserHandlerTest {
     void updateUserTokens_Success() {
         String nickname = "testUser";
         int newTokens = 150;
-        User updatedUser = new User(1L, nickname, "password123", newTokens, Role.USER);
+        User updatedUser = new User(1L, nickname, "password123", newTokens, Role.USER, List.of());
 
         ServerRequest request = createMockRequest(nickname, newTokens);
         when(userService.updateTokens(nickname, newTokens)).thenReturn(Mono.just(updatedUser));
@@ -123,6 +126,60 @@ class UserHandlerTest {
                 .expectNextMatches(serverResponse -> {
                     assertEquals(HttpStatus.BAD_REQUEST, serverResponse.statusCode());
                     return true;
+                })
+                .verifyComplete();
+    }
+
+    //! test addCharacterId
+    @Test
+    void addCharacterId_Success() {
+        String nickname = "testUser";
+        Long characterId = 123L;
+
+        User mockUser = User.builder()
+                .nickname(nickname)
+                .characterIds(new ArrayList<>(List.of(characterId))) 
+                .build();
+
+        // Debug del mock
+        System.out.println("[TEST] User mockeado: " + mockUser);
+
+        ServerRequest request = createMockRequest(nickname, characterId);
+
+        // Debug del request mockeado
+        request.bodyToMono(Long.class).subscribe(b ->
+                System.out.println("[TEST] Body del request mockeado: " + b));
+        request.principal().subscribe(p ->
+                System.out.println("[TEST] Principal mockeado: " + p));
+
+        when(userService.addCharacterId(nickname, characterId))
+                .thenReturn(Mono.just(mockUser));
+
+        StepVerifier.create(userHandler.addCharacterId(request))
+                .expectNextMatches(res -> {
+                    System.out.println("[TEST] Respuesta recibida: " + res.statusCode());
+                    return res.statusCode() == HttpStatus.OK;
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void addCharacterId_UserNotFound() {
+        // Arrange
+        String nickname = "usuarioInexistente";
+        Long characterId = 123L;
+
+        ServerRequest request = createMockRequest(nickname, characterId);
+
+        // Mock del servicio para simular que el usuario no existe
+        when(userService.addCharacterId(nickname, characterId))
+                .thenReturn(Mono.error(new UserNotFoundException("Usuario no encontrado")));
+
+        // Act & Assert
+        StepVerifier.create(userHandler.addCharacterId(request))
+                .expectNextMatches(res -> {
+                    System.out.println("[TEST] Status de error recibido: " + res.statusCode());
+                    return res.statusCode() == HttpStatus.BAD_REQUEST; // Verifica que devuelve 400
                 })
                 .verifyComplete();
     }

@@ -16,6 +16,8 @@ public class UserRouterConfig {
         return route()
                 .GET("/users/me", handler::getCurrentUser)
                 .PUT("/users/me/tokens", handler::updateUserTokens)
+                .GET("/users/me/gallery", handler::getUserGallery)
+                .POST("/users/me/gallery", handler::addCharacterId)
                 .build();
     }
 }

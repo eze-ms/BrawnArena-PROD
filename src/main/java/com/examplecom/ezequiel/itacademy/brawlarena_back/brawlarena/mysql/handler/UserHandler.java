@@ -21,6 +21,8 @@ public class UserHandler {
         this.userService = userService;
     }
 
+    //*El handler no debe hacer lógica: su rol es enrutar peticiones, delegar al servicio y devolver respuestas.
+    //* Pendiente centralizar la lógica en los servicios.
     public Mono<ServerResponse> getCurrentUser(ServerRequest request) {
         return request.principal()
                 .cast(Authentication.class)
@@ -46,6 +48,31 @@ public class UserHandler {
                 .doOnNext(user -> logger.info("Tokens actualizados correctamente para: {}", user.getNickname()))
                 .flatMap(updatedUser -> ServerResponse.ok().bodyValue(updatedUser))
                 .doOnError(e -> logger.error("Error al actualizar tokens: {}", e.getMessage()))
+                .onErrorResume(e -> ServerResponse.badRequest().bodyValue(e.getMessage()));
+    }
+
+    //*******//
+
+    public Mono<ServerResponse> addCharacterId(ServerRequest request) {
+        return request.bodyToMono(Long.class)
+                .flatMap(characterId ->
+                        request.principal()
+                                .cast(Authentication.class)
+                                .flatMap(auth ->
+                                        userService.addCharacterId(auth.getName(), characterId)
+                                )
+                )
+                .flatMap(user -> ServerResponse.ok().bodyValue(user))
+                .onErrorResume(e -> ServerResponse.badRequest().bodyValue(e.getMessage()));
+    }
+
+
+    public Mono<ServerResponse> getUserGallery(ServerRequest request) {
+        return Mono.justOrEmpty(request.principal())
+                .cast(Authentication.class)
+                .switchIfEmpty(Mono.error(new IllegalStateException("Principal inválido")))
+                .flatMap(auth -> userService.getCharacterIds(auth.getName())) // Pasamos el nickname al servicio
+                .flatMap(ids -> ServerResponse.ok().bodyValue(ids))
                 .onErrorResume(e -> ServerResponse.badRequest().bodyValue(e.getMessage()));
     }
 

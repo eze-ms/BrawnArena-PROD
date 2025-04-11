@@ -7,9 +7,15 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.reposi
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.reactive.function.server.ServerRequest;
 import reactor.core.publisher.Mono;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -68,6 +74,33 @@ public class UserServiceImpl implements UserService {
                 })
                 .doOnNext(updatedUser -> logger.info("Tokens actualizados para usuario: {}", updatedUser.getNickname()))
                 .doOnError(e -> logger.error("Error al actualizar tokens: {}", e.getMessage()));
+    }
+
+    @Override
+    @Transactional
+    public Mono<User> addCharacterId(String nickname, Long characterId) {
+        return userRepository.findByNickname(nickname)
+                .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no encontrado.")))
+                .flatMap(user -> {
+                    if (user.getCharacterIds() == null) {
+                        user.setCharacterIds(new ArrayList<>());
+                    }
+                    if (!user.getCharacterIds().contains(characterId)) {
+                        user.getCharacterIds().add(characterId);
+                        return userRepository.save(user);
+                    }
+                    return Mono.just(user);
+                })
+                .doOnError(e -> logger.error("Error al añadir characterId: {}", e.getMessage()));
+    }
+
+    @Override
+    @Transactional
+    public Mono<List<Long>> getCharacterIds(String nickname) {
+        return userRepository.findByNickname(nickname)
+                .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no encontrado.")))
+                .map(User::getCharacterIds)
+                .doOnError(e -> logger.error("Error al obtener la galería de {}: {}", nickname, e.getMessage()));
     }
 
 }

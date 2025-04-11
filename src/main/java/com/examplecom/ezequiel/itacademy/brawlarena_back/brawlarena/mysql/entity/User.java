@@ -40,6 +40,6 @@ public class User {
     private Role role;
 
     @Column("gallery")
-    private List<Long> characterIds; 
+    private List<Long> characterIds;
 
 }

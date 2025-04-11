@@ -15,6 +15,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.util.List;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -37,7 +39,7 @@ class UserServiceImplTest {
     void findById_WhenUserExists_ReturnsUser() {
         // Arrange
         Long userId = 1L;
-        User expectedUser = new User(userId, "testUser", "password", 100, Role.USER);
+        User expectedUser = new User(userId, "testUser", "password", 100, Role.USER, List.of());
         when(userRepository.findById(userId)).thenReturn(Mono.just(expectedUser));
 
         // Act & Assert
@@ -63,7 +65,7 @@ class UserServiceImplTest {
     void findByNickname_WhenUserExists_ReturnsUser() {
         // Arrange
         String nickname = "testUser";
-        User expectedUser = new User(1L, nickname, "password", 100, Role.USER);
+        User expectedUser = new User(1L, nickname, "password", 100, Role.USER, List.of());
         when(userRepository.findByNickname(nickname)).thenReturn(Mono.just(expectedUser));
 
         // Act & Assert
@@ -88,8 +90,8 @@ class UserServiceImplTest {
     @Test
     void save_WhenNewUser_ReturnsSavedUser() {
         // Arrange
-        User newUser = new User(null, "newUser", "rawPassword", 100, Role.USER);
-        User savedUser = new User(1L, "newUser", "encodedPassword", 100, Role.USER);
+        User newUser = new User(null, "newUser", "rawPassword", 100, Role.USER, List.of());
+        User savedUser = new User(1L, "newUser", "encodedPassword", 100, Role.USER, List.of());
 
         when(userRepository.findByNickname("newUser")).thenReturn(Mono.empty());
         when(passwordEncoder.encode("rawPassword")).thenReturn("encodedPassword");
@@ -107,8 +109,8 @@ class UserServiceImplTest {
     @Test
     void save_WhenNicknameExists_ThrowsException() {
         // Arrange
-        User existingUser = new User(1L, "existingUser", "encodedPassword", 100, Role.USER);
-        User newUser = new User(null, "existingUser", "rawPassword", 100, Role.USER);
+        User existingUser = new User(1L, "existingUser", "encodedPassword", 100, Role.USER, List.of());
+        User newUser = new User(null, "existingUser", "rawPassword", 100, Role.USER, List.of());
 
         when(userRepository.findByNickname("existingUser"))
                 .thenReturn(Mono.just(existingUser));
@@ -131,8 +133,8 @@ class UserServiceImplTest {
         // Arrange
         String nickname = "testUser";
         int newTokens = 200;
-        User originalUser = new User(1L, nickname, "password", 100, Role.USER);
-        User updatedUser = new User(1L, nickname, "password", newTokens, Role.USER);
+        User originalUser = new User(1L, nickname, "password", 100, Role.USER, List.of());
+        User updatedUser = new User(1L, nickname, "password", newTokens, Role.USER, List.of());
 
         when(userRepository.findByNickname(nickname)).thenReturn(Mono.just(originalUser));
         when(userRepository.save(any(User.class))).thenReturn(Mono.just(updatedUser));
