@@ -1,6 +1,5 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.handler;
 
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.service.UserService;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;

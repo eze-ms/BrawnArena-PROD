@@ -8,6 +8,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
+import java.util.List;
+
 
 @Table(name = "users")
 @Getter
@@ -36,4 +38,8 @@ public class User {
 
     @Column("role")
     private Role role;
+
+    @Column("gallery")
+    private List<Long> characterIds; 
+
 }

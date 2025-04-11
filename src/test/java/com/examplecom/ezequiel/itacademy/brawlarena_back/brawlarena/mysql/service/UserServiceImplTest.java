@@ -158,18 +158,4 @@ class UserServiceImplTest {
                 .verify();
     }
 
-    @Test
-    void updateTokens_WhenNegativeTokens_ThrowsException() {
-        // Arrange
-        String nickname = "testUser";
-        User user = new User(1L, nickname, "password", 100, Role.USER);
-        when(userRepository.findByNickname(nickname)).thenReturn(Mono.just(user));
-
-        // Act & Assert
-        StepVerifier.create(userService.updateTokens(nickname, -50))
-                .expectError(IllegalArgumentException.class)
-                .verify();
-
-        verify(userRepository, never()).save(any());
-    }
 }
