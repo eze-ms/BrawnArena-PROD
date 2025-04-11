@@ -37,9 +37,9 @@ public class User {
     private Integer tokens;
 
     @Column("role")
-    private Role role;
+    private String role;
 
     @Column("gallery")
-    private List<Long> characterIds;
+    private String characterIds;
 
 }

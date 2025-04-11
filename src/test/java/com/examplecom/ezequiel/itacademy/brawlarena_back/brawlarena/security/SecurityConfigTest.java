@@ -1,6 +1,5 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.security;
 
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.Role;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,7 +31,7 @@ class SecurityConfigIntegrationTest {
         User user = new User();
         user.setNickname("usuario3");
         user.setPassword("1234");
-        user.setRole(Role.USER);
+        user.setRole("USER");
         user.setTokens(0);
 
         webTestClient.post()

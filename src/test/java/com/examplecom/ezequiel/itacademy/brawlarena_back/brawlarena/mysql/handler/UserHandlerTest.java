@@ -3,6 +3,8 @@ package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.handl
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.Role;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.service.UserService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -58,7 +60,7 @@ class UserHandlerTest {
     @Test
     void getCurrentUser_Success() {
         String nickname = "testUser";
-        User mockUser = new User(1L, nickname, "pass", 100, Role.USER, List.of());
+        User mockUser = new User(1L, nickname, "pass", 100, "USER", "[]");
         ServerRequest request = createMockRequest(nickname, null);
 
         when(userService.findByNickname(nickname)).thenReturn(Mono.just(mockUser));
@@ -100,7 +102,7 @@ class UserHandlerTest {
     void updateUserTokens_Success() {
         String nickname = "testUser";
         int newTokens = 150;
-        User updatedUser = new User(1L, nickname, "password123", newTokens, Role.USER, List.of());
+        User updatedUser = new User(1L, nickname, "password123", newTokens, "USER", "[]");
 
         ServerRequest request = createMockRequest(nickname, newTokens);
         when(userService.updateTokens(nickname, newTokens)).thenReturn(Mono.just(updatedUser));
@@ -132,14 +134,18 @@ class UserHandlerTest {
 
     //! test addCharacterId
     @Test
-    void addCharacterId_Success() {
+    void addCharacterId_Success() throws JsonProcessingException {
         String nickname = "testUser";
         Long characterId = 123L;
 
+        String characterIdsJson = new ObjectMapper()
+                .writeValueAsString(new ArrayList<>(List.of(characterId)));
+
         User mockUser = User.builder()
                 .nickname(nickname)
-                .characterIds(new ArrayList<>(List.of(characterId))) 
+                .characterIds(characterIdsJson)
                 .build();
+
 
         // Debug del mock
         System.out.println("[TEST] User mockeado: " + mockUser);
@@ -170,8 +176,6 @@ class UserHandlerTest {
         Long characterId = 123L;
 
         ServerRequest request = createMockRequest(nickname, characterId);
-
-        // Mock del servicio para simular que el usuario no existe
         when(userService.addCharacterId(nickname, characterId))
                 .thenReturn(Mono.error(new UserNotFoundException("Usuario no encontrado")));
 
@@ -183,5 +187,6 @@ class UserHandlerTest {
                 })
                 .verifyComplete();
     }
+
 
 }

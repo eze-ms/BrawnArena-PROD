@@ -16,7 +16,9 @@ public class AuthRouterConfig {
         return route()
                 .POST("/auth/register", handler::registerUser)
                 .POST("/auth/login", handler::loginUser)
+                .GET("/auth/validate", handler::validateToken)
                 .build();
+
     }
 }
 

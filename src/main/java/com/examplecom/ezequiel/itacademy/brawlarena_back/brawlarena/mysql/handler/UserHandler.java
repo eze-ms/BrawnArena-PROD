@@ -57,7 +57,7 @@ public class UserHandler {
         return request.bodyToMono(Long.class)
                 .flatMap(characterId ->
                         request.principal()
-                                .cast(Authentication.class)
+                                .map(principal -> (Authentication) principal)
                                 .flatMap(auth ->
                                         userService.addCharacterId(auth.getName(), characterId)
                                 )
@@ -68,13 +68,14 @@ public class UserHandler {
 
 
     public Mono<ServerResponse> getUserGallery(ServerRequest request) {
-        return Mono.justOrEmpty(request.principal())
-                .cast(Authentication.class)
+        return Mono.from(request.principal())
+                .map(principal -> (Authentication) principal)
                 .switchIfEmpty(Mono.error(new IllegalStateException("Principal inválido")))
-                .flatMap(auth -> userService.getCharacterIds(auth.getName())) // Pasamos el nickname al servicio
+                .flatMap(auth -> userService.getCharacterIds(auth.getName()))
                 .flatMap(ids -> ServerResponse.ok().bodyValue(ids))
                 .onErrorResume(e -> ServerResponse.badRequest().bodyValue(e.getMessage()));
     }
+
 
 }
 

@@ -22,7 +22,6 @@ import org.springframework.web.reactive.function.server.ServerRequest;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -51,8 +50,8 @@ class AuthHandlerTest {
 
     @Test
     void registerUser_Success() {
-        User newUser = new User(null, "newUser", "password123", 100, Role.USER, List.of());
-        User savedUser = new User(1L, "newUser", "encodedPassword", 100, Role.USER, List.of());
+        User newUser = new User(null, "newUser", "password123", 100, "USER", "[]");
+        User savedUser = new User(1L, "newUser", "encodedPassword", 100, "USER", "[]");
 
         when(request.bodyToMono(User.class)).thenReturn(Mono.just(newUser));
         when(userService.save(any(User.class))).thenReturn(Mono.just(savedUser));
@@ -64,7 +63,7 @@ class AuthHandlerTest {
 
     @Test
     void registerUser_ConflictWhenNicknameExists() {
-        User existingUser = new User(null, "existingUser", "password123", 100, Role.USER, List.of());
+        User existingUser = new User(null, "existingUser", "password123", 100, "USER", "[]");
 
         when(request.bodyToMono(User.class)).thenReturn(Mono.just(existingUser));
         when(userService.save(any(User.class)))
@@ -79,7 +78,7 @@ class AuthHandlerTest {
     void loginUser_Success() {
 
         LoginRequest loginRequest = new LoginRequest("user1", "pass123");
-        User mockUser = new User(1L, "user1", "hashedPass", 100, Role.USER, List.of());
+        User mockUser = new User(1L, "user1", "hashedPass", 100, "USER", "[]");
 
         when(request.bodyToMono(LoginRequest.class)).thenReturn(Mono.just(loginRequest));
         when(userService.findByNickname("user1")).thenReturn(Mono.just(mockUser));
@@ -94,7 +93,7 @@ class AuthHandlerTest {
     @Test
     void loginUser_InvalidPassword() {
         LoginRequest loginRequest = new LoginRequest("user1", "wrongPass");
-        User mockUser = new User(1L, "user1", "hashedPass", 100, Role.USER, List.of());
+        User mockUser = new User(1L, "user1", "hashedPass", 100, "USER", "[]");
         when(request.bodyToMono(LoginRequest.class)).thenReturn(Mono.just(loginRequest));
         when(userService.findByNickname("user1")).thenReturn(Mono.just(mockUser));
         when(passwordEncoder.matches("wrongPass", "hashedPass")).thenReturn(false);

@@ -1,5 +1,6 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.handler;
 
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.Role;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.dto.LoginRequest;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.service.UserService;
@@ -55,7 +56,7 @@ public class AuthHandler {
                         .flatMap(user -> {
                             logger.info("Login exitoso: {}", user.getNickname());
                             return ServerResponse.ok()
-                                    .bodyValue(jwtService.generateToken(user.getNickname(), user.getRole()));
+                                    .bodyValue(jwtService.generateToken(user.getNickname(), Role.valueOf(user.getRole())));
                         })
                         .switchIfEmpty(Mono.defer(() -> {
                             logger.warn("Usuario no encontrado: {}", login.nickname());

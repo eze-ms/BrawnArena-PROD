@@ -1,5 +1,6 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.service;
 
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.Role;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.NicknameAlreadyExistsException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
@@ -7,12 +8,13 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.reposi
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.reactive.function.server.ServerRequest;
 import reactor.core.publisher.Mono;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +25,8 @@ public class UserServiceImpl implements UserService {
     private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
 
 
     @Autowired
@@ -57,11 +61,16 @@ public class UserServiceImpl implements UserService {
                 .switchIfEmpty(Mono.defer(() -> {
                     logger.info("Registrando nuevo usuario: {}", user.getNickname());
                     user.setPassword(passwordEncoder.encode(user.getPassword()));
+                    if (user.getCharacterIds() == null) {
+                        user.setCharacterIds("[]");
+                    }
+                    user.setRole("USER");
                     return userRepository.save(user);
                 }))
                 .doOnNext(savedUser -> logger.info("Usuario guardado: {}", savedUser))
                 .doOnError(e -> logger.error("Error al registrar el usuario: {}", e.getMessage()));
     }
+
 
     @Override
     public Mono<User> updateTokens(String nickname, int newTokens) {
@@ -82,25 +91,44 @@ public class UserServiceImpl implements UserService {
         return userRepository.findByNickname(nickname)
                 .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no encontrado.")))
                 .flatMap(user -> {
-                    if (user.getCharacterIds() == null) {
-                        user.setCharacterIds(new ArrayList<>());
+                    List<Long> list;
+                    try {
+                        String json = user.getCharacterIds();
+                        list = (json != null)
+                                ? objectMapper.readValue(json, new TypeReference<List<Long>>() {})
+                                : new ArrayList<>();
+                    } catch (Exception e) {
+                        return Mono.error(new RuntimeException("Error al leer la galería del usuario."));
                     }
-                    if (!user.getCharacterIds().contains(characterId)) {
-                        user.getCharacterIds().add(characterId);
+
+                    if (!list.contains(characterId)) {
+                        list.add(characterId);
+                        try {
+                            user.setCharacterIds(objectMapper.writeValueAsString(list));
+                        } catch (Exception e) {
+                            return Mono.error(new RuntimeException("Error al guardar la galería."));
+                        }
                         return userRepository.save(user);
                     }
                     return Mono.just(user);
-                })
-                .doOnError(e -> logger.error("Error al añadir characterId: {}", e.getMessage()));
+                });
     }
 
     @Override
-    @Transactional
     public Mono<List<Long>> getCharacterIds(String nickname) {
         return userRepository.findByNickname(nickname)
                 .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no encontrado.")))
-                .map(User::getCharacterIds)
-                .doOnError(e -> logger.error("Error al obtener la galería de {}: {}", nickname, e.getMessage()));
+                .map(user -> {
+                    try {
+                        String json = user.getCharacterIds();
+                        return (json != null)
+                                ? objectMapper.readValue(json, new TypeReference<List<Long>>() {})
+                                : new ArrayList<>();
+                    } catch (Exception e) {
+                        throw new RuntimeException("Error al leer la galería.");
+                    }
+                });
     }
+
 
 }
