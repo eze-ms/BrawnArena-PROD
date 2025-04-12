@@ -1,6 +1,5 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.handler;
 
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.Role;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.service.UserService;
 import com.fasterxml.jackson.core.JsonProcessingException;

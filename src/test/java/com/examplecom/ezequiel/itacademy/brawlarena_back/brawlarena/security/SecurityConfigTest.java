@@ -29,7 +29,7 @@ class SecurityConfigIntegrationTest {
     @Test
     void publicRouteShouldBeAccessibleWithoutAuth() {
         User user = new User();
-        user.setNickname("usuario3");
+        user.setNickname("usuario5");
         user.setPassword("1234");
         user.setRole("USER");
         user.setTokens(0);

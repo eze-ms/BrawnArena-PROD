@@ -38,12 +38,20 @@ public class SecurityConfig {
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers("/auth/**").permitAll()
+                        .pathMatchers(
+                                "/auth/**",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/webjars/**",
+                                "/v3/api-docs/**"
+                        ).permitAll()
                         .pathMatchers("/users/**").authenticated()
                 )
+
                 .securityContextRepository(jwtSecurityContextRepository)
                 .build();
     }
+
 
     @Bean
     public ServerSecurityContextRepository jwtSecurityContextRepository(JwtService jwtService) {
