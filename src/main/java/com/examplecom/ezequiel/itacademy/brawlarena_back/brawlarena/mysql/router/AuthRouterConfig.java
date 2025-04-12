@@ -8,6 +8,7 @@ import org.springdoc.core.annotations.RouterOperation;
 import org.springdoc.core.annotations.RouterOperations;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerResponse;
 
@@ -21,35 +22,23 @@ public class AuthRouterConfig {
     @Bean
     @RouterOperations({
             @RouterOperation(
-                    path = "/auth/login",
+                    path = "/auth/register",
+                    method = RequestMethod.POST,
                     beanClass = AuthHandler.class,
-                    beanMethod = "loginUser",
-                    operation = @Operation(
-                            summary = "Login de usuario",
-                            description = "Autentica un usuario por nickname y contraseña. Devuelve un JWT si las credenciales son correctas."
-                    )
+                    beanMethod = "registerUser"
             ),
             @RouterOperation(
-                    path = "/auth/register",
+                    path = "/auth/login",
+                    method = RequestMethod.POST,
                     beanClass = AuthHandler.class,
-                    beanMethod = "registerUser",
-                    operation = @Operation(
-                            summary = "Registro de usuario",
-                            description = "Registra un nuevo usuario con nickname y contraseña. Devuelve el usuario creado si el registro es exitoso. Falla si el nickname ya existe."
-
-                    )
+                    beanMethod = "loginUser"
             ),
             @RouterOperation(
                     path = "/auth/validate",
+                    method = RequestMethod.GET,
                     beanClass = AuthHandler.class,
-                    beanMethod = "validateToken",
-                    operation = @Operation(
-                            summary = "Verificación de token",
-                            description = "Verifica la validez del token JWT enviado en la cabecera Authorization. Devuelve los datos mínimos del usuario autenticado si el token es válido.",
-                            security = @SecurityRequirement(name = "bearerAuth")
-                    )
+                    beanMethod = "validateToken"
             )
-
     })
 
     public RouterFunction<ServerResponse> authRoutes(AuthHandler handler) {
@@ -58,7 +47,6 @@ public class AuthRouterConfig {
                 .POST("/auth/login", handler::loginUser)
                 .GET("/auth/validate", handler::validateToken)
                 .build();
-
     }
 }
 

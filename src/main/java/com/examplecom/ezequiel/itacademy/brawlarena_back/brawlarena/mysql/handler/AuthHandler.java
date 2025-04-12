@@ -43,6 +43,7 @@ public class AuthHandler {
     @Operation(
             summary = "Registro de usuario",
             description = "Registra un nuevo usuario con nickname y contraseña. Devuelve el usuario creado si el registro es exitoso. Falla si el nickname ya existe.",
+            operationId = "registerUser",
             requestBody = @RequestBody(
                     description = "Datos del nuevo usuario a registrar: nickname y contraseña",
                     required = true,
@@ -92,6 +93,7 @@ public class AuthHandler {
     @Operation(
             summary = "Login de usuario",
             description = "Autentica un usuario por nickname y contraseña. Devuelve un JWT si las credenciales son correctas.",
+            operationId = "loginUser",
             requestBody = @RequestBody(
                     description = "Credenciales del usuario para autenticación",
                     required = true,
