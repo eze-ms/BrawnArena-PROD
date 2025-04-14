@@ -131,28 +131,36 @@ public class AuthHandler {
     public Mono<ServerResponse> loginUser(ServerRequest request) {
         return request.bodyToMono(LoginRequest.class)
                 .doOnNext(login -> logger.info("Intento de login: {}", login.nickname()))
-                .flatMap(login -> userService.findByNickname(login.nickname())
-                        .filter(user -> {
-                            boolean matches = passwordEncoder.matches(login.password(), user.getPassword());
-                            if (!matches) {
-                                logger.warn("Contraseña incorrecta para usuario: {}", login.nickname());
-                            }
-                            return matches;
-                        })
-                        .flatMap(user -> {
-                            logger.info("Login exitoso: {}", user.getNickname());
-                            return ServerResponse.ok()
-                                    .bodyValue(jwtService.generateToken(user.getNickname(), Role.valueOf(user.getRole())));
-                        })
-                        .switchIfEmpty(Mono.defer(() -> {
-                            logger.warn("Usuario no encontrado: {}", login.nickname());
-                            return ServerResponse.status(HttpStatus.UNAUTHORIZED).build();
-                        }))
-                        .onErrorResume(e -> {
-                            logger.error("Error durante login: {}", e.getMessage());
-                            return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-                        })
-                );
+                .flatMap(login -> {
+                    // Lógica especial para el admin
+                    if ("admin".equals(login.nickname()) && "12345678".equals(login.password())) {
+                        logger.info("Login exitoso como admin");
+                        return ServerResponse.ok()
+                                .bodyValue(jwtService.generateToken("admin", Role.ADMIN)); // Asignar rol ADMIN explícitamente
+                    }
+
+                    return userService.findByNickname(login.nickname())
+                            .filter(user -> {
+                                boolean matches = passwordEncoder.matches(login.password(), user.getPassword());
+                                if (!matches) {
+                                    logger.warn("Contraseña incorrecta para usuario: {}", login.nickname());
+                                }
+                                return matches;
+                            })
+                            .flatMap(user -> {
+                                logger.info("Login exitoso: {}", user.getNickname());
+                                return ServerResponse.ok()
+                                        .bodyValue(jwtService.generateToken(user.getNickname(), Role.valueOf(user.getRole())));
+                            })
+                            .switchIfEmpty(Mono.defer(() -> {
+                                logger.warn("Usuario no encontrado: {}", login.nickname());
+                                return ServerResponse.status(HttpStatus.UNAUTHORIZED).build();
+                            }));
+                })
+                .onErrorResume(e -> {
+                    logger.error("Error durante login: {}", e.getMessage());
+                    return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                });
     }
 
     @Operation(
