@@ -1,14 +1,11 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity;
 
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.Role;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
-
-import java.util.List;
 
 
 @Table(name = "users")

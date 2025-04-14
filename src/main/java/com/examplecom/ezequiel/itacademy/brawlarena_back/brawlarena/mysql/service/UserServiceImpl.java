@@ -1,6 +1,5 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.service;
 
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.Role;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.NicknameAlreadyExistsException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
