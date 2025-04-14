@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -78,7 +79,6 @@ public class AuthHandler {
                     )
             }
     )
-
     public Mono<ServerResponse> registerUser(ServerRequest request) {
         return request.bodyToMono(User.class)
                 .doOnNext(user -> logger.info("Registrando nuevo usuario: {}", user)) // Log antes de guardar
@@ -128,7 +128,6 @@ public class AuthHandler {
                     )
             }
     )
-
     public Mono<ServerResponse> loginUser(ServerRequest request) {
         return request.bodyToMono(LoginRequest.class)
                 .doOnNext(login -> logger.info("Intento de login: {}", login.nickname()))
@@ -158,7 +157,9 @@ public class AuthHandler {
 
     @Operation(
             summary = "Verificación de token",
-            description = "Verifica la validez del token JWT enviado en la cabecera 'Authorization'. Devuelve los datos mínimos del usuario autenticado (nickname, rol) si el token es válido."
+            description = "Verifica la validez del token JWT enviado en la cabecera 'Authorization'. Devuelve los datos mínimos del usuario autenticado (nickname, rol) si el token es válido.",
+            security = @SecurityRequirement(name = "bearerAuth"),
+            operationId = "validateToken"
     )
     @ApiResponses(
             value = {
@@ -172,14 +173,9 @@ public class AuthHandler {
                     @ApiResponse(
                             responseCode = "400",
                             description = "Datos inválidos"
-                    ),
-                    @ApiResponse(
-                            responseCode = "409",
-                            description = "Nickname ya existe"
                     )
             }
     )
-
     public Mono<ServerResponse> validateToken(ServerRequest request) {
         return Mono.justOrEmpty(request.headers().firstHeader("Authorization"))
                 .doOnNext(header -> logger.info("Validando token recibido"))
