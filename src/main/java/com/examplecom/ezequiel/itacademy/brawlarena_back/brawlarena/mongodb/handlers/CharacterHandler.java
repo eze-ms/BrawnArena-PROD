@@ -68,13 +68,34 @@ public class CharacterHandler {
 
 
     //! Permite desbloquear un personaje utilizando tokens, asociándolo con el jugador
-//    public Mono<ServerResponse> unlockCharacter(ServerRequest request) {
-//        String playerId = request.pathVariable("playerId");
-//        String characterId = request.queryParam("characterId").orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Character ID is required"));
-//        return characterService.unlockCharacter(playerId, characterId)
-//                .flatMap(unlocked -> ServerResponse.ok().bodyValue("Character unlocked successfully"))
-//                .onErrorResume(e -> ServerResponse.status(HttpStatus.FORBIDDEN).bodyValue("Not enough tokens or error unlocking character"));
-//    }
+    public Mono<ServerResponse> unlockCharacter(ServerRequest request) {
+        String characterId = request.queryParam("characterId")
+                .orElse(null);
+
+        if (characterId == null) {
+            logger.warn("Falta el parámetro 'characterId' en la solicitud");
+            return ServerResponse.badRequest().bodyValue("Parámetro 'characterId' requerido");
+        }
+
+        return request.principal()
+                .cast(Authentication.class)
+                .map(Authentication::getName)
+                .flatMap(playerId -> {
+                    logger.info("Solicitud de desbloqueo de personaje {} por parte de playerId: {}", characterId, playerId);
+                    return characterService.unlockCharacter(playerId, characterId)
+                            .flatMap(unlocked -> {
+                                if (unlocked) {
+                                    return ServerResponse.ok().bodyValue("Personaje desbloqueado con éxito");
+                                } else {
+                                    return ServerResponse.ok().bodyValue("El personaje ya estaba desbloqueado");
+                                }
+                            });
+                })
+                .doOnError(e -> logger.error("Error al desbloquear personaje: {}", e.getMessage()))
+                .onErrorResume(e -> ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .bodyValue("Error al procesar la solicitud de desbloqueo"));
+    }
+
 
     //! Devuelve la información detallada de un personaje específico, como poderes y dificultad
 //    public Mono<ServerResponse> getCharacterDetail(ServerRequest request) {

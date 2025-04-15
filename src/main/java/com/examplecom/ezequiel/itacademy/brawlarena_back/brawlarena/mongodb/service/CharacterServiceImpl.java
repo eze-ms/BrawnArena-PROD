@@ -1,5 +1,6 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service;
 
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
 import org.slf4j.Logger;
@@ -45,12 +46,27 @@ public class CharacterServiceImpl implements CharacterService {
                 .doOnError(error -> logger.error("Error al obtener personajes desbloqueados: {}", error.getMessage()));
     }
 
-    
-    //! PENDIENTE
+
     @Override
     public Mono<Boolean> unlockCharacter(String playerId, String characterId) {
-        // Implementación pendiente
-        return Mono.empty();
+        return characterRepository.findById(characterId)
+                .doOnSubscribe(sub -> logger.info("Intentando desbloquear personaje {} para playerId: {}", characterId, playerId))
+                .switchIfEmpty(Mono.defer(() -> {
+                    logger.warn("Personaje con id {} no encontrado", characterId);
+                    return Mono.error(new CharacterNotFoundException("Personaje no encontrado"));
+                }))
+                .flatMap(character -> {
+                    if (character.isUnlocked()) {
+                        logger.warn("El personaje {} ya está desbloqueado", character.getName());
+                        return Mono.just(false); // Ya estaba desbloqueado
+                    }
+                    character.setUnlocked(true);
+                    character.setPlayerId(playerId);
+                    return characterRepository.save(character)
+                            .doOnSuccess(saved -> logger.info("Personaje {} desbloqueado para playerId: {}", saved.getName(), playerId))
+                            .thenReturn(true);
+                })
+                .doOnError(error -> logger.error("Error al desbloquear personaje: {}", error.getMessage()));
     }
 
     //! PENDIENTE

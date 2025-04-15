@@ -19,6 +19,7 @@ import reactor.test.StepVerifier;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.Mockito.when;
 
@@ -52,6 +53,12 @@ class CharacterHandlerTest {
         );
     }
 
+    // Helper para mockear query params
+    private void mockQueryParams(String key, String value) {
+        when(request.queryParam(key)).thenReturn(Optional.ofNullable(value));
+    }
+
+    //*** getCharacterAllId ***//
     @Test
     void getCharacterAllId_ReturnsOkWithFreeCharacters() {
         // Arrange - Usa el FQN implícito gracias al import
@@ -95,6 +102,7 @@ class CharacterHandlerTest {
                 .verifyComplete();
     }
 
+    //*** getCharacterId ***//
     //! Test para personajes desbloqueados
     @Test
     void getCharacterId_ReturnsUnlockedCharacters() {
@@ -144,4 +152,76 @@ class CharacterHandlerTest {
                 .verifyComplete();
     }
 
+    //*** unlockCharacter ***//
+    @Test
+    void unlockCharacter_MissingCharacterId_ReturnsBadRequest() {
+        // Arrange
+        mockQueryParams("characterId", null);
+
+        // Act & Assert
+        StepVerifier.create(characterHandler.unlockCharacter(request))
+                .expectNextMatches(response ->
+                        response.statusCode() == HttpStatus.BAD_REQUEST)
+                .verifyComplete();
+    }
+
+    @Test
+    void unlockCharacter_SuccessfullyUnlocked_ReturnsOk() {
+        // Arrange
+        mockQueryParams("characterId", "char1");
+        Authentication auth = new UsernamePasswordAuthenticationToken("player1", "");
+
+        when(request.principal())
+                .thenAnswer(inv -> Mono.just(auth));
+        when(characterService.unlockCharacter("player1", "char1"))
+                .thenReturn(Mono.just(true));
+
+        // Act & Assert
+        StepVerifier.create(characterHandler.unlockCharacter(request))
+                .expectNextMatches(response -> {
+                    if (response.statusCode() != HttpStatus.OK) return false;
+                    String body = (String) ((EntityResponse) response).entity();
+                    return body.equals("Personaje desbloqueado con éxito");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void unlockCharacter_AlreadyUnlocked_ReturnsOk() {
+        // Arrange
+        mockQueryParams("characterId", "char1");
+        Authentication auth = new UsernamePasswordAuthenticationToken("player1", "");
+
+        when(request.principal())
+                .thenAnswer(inv -> Mono.just(auth));
+        when(characterService.unlockCharacter("player1", "char1"))
+                .thenReturn(Mono.just(false));
+
+        // Act & Assert
+        StepVerifier.create(characterHandler.unlockCharacter(request))
+                .expectNextMatches(response -> {
+                    if (response.statusCode() != HttpStatus.OK) return false;
+                    String body = (String) ((EntityResponse) response).entity();
+                    return body.equals("El personaje ya estaba desbloqueado");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void unlockCharacter_ServiceError_Returns500() {
+        // Arrange
+        mockQueryParams("characterId", "char1");
+        Authentication auth = new UsernamePasswordAuthenticationToken("player1", "");
+
+        when(request.principal())
+                .thenAnswer(inv -> Mono.just(auth));
+        when(characterService.unlockCharacter("player1", "char1"))
+                .thenReturn(Mono.error(new RuntimeException("DB Error")));
+
+        // Act & Assert
+        StepVerifier.create(characterHandler.unlockCharacter(request))
+                .expectNextMatches(response ->
+                        response.statusCode() == HttpStatus.INTERNAL_SERVER_ERROR)
+                .verifyComplete();
+    }
 }

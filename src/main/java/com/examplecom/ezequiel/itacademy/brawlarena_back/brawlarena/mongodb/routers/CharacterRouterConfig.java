@@ -17,6 +17,7 @@ public class CharacterRouterConfig {
         return route()
                 .GET("/characters/free", handler::getCharacterAllId)
                 .GET("/characters/unlocked", handler::getCharacterId)
+                .POST("/characters/unlock", handler::unlockCharacter)
                 .build();
     }
 }

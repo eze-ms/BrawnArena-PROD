@@ -20,4 +20,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ErrorMessage error = new ErrorMessage(HttpStatus.CONFLICT, ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
+
+    @ExceptionHandler(CharacterNotFoundException.class)
+    public ResponseEntity<ErrorMessage> handleCharacterNotFoundException(CharacterNotFoundException ex) {
+        ErrorMessage error = new ErrorMessage(HttpStatus.NOT_FOUND, ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+
 }
