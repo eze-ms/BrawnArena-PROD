@@ -40,7 +40,7 @@ public class SecurityConfig {
             ServerSecurityContextRepository jwtSecurityContextRepository) {
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Nueva línea
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeExchange(exchanges -> exchanges
                         .pathMatchers(
                                 "/auth/**",
@@ -49,7 +49,7 @@ public class SecurityConfig {
                                 "/webjars/**",
                                 "/v3/api-docs/**"
                         ).permitAll()
-                        .pathMatchers("/users/**").authenticated()
+                        .pathMatchers("/users/**", "/characters/**").authenticated()
                 )
 
                 .securityContextRepository(jwtSecurityContextRepository)
