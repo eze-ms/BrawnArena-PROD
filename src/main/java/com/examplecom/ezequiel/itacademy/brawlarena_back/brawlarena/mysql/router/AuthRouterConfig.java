@@ -1,8 +1,6 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.router;
 
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.handler.AuthHandler;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springdoc.core.annotations.RouterOperation;
 import org.springdoc.core.annotations.RouterOperations;

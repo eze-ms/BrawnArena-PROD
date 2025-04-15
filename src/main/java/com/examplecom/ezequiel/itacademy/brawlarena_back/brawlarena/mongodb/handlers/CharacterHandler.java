@@ -5,6 +5,7 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.security.Jwt
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
@@ -43,13 +44,29 @@ public class CharacterHandler {
 
 
     //! Devuelve los personajes que el jugador ha desbloqueado
-//    public Mono<ServerResponse> getCharacterId(ServerRequest request) {
-//        String playerId = request.pathVariable("playerId"); // Asumiendo que se pasa un playerId
-//        return characterService.getUnlockedCharacters(playerId)
-//                .collectList()
-//                .flatMap(characters -> ServerResponse.ok().bodyValue(characters))
-//                .onErrorResume(e -> ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue("No characters found for this player"));
-//    }
+    public Mono<ServerResponse> getCharacterId(ServerRequest request) {
+        return request.principal()
+                .cast(Authentication.class)
+                .map(Authentication::getName)
+                .flatMap(playerId -> {
+                    logger.info("Solicitud recibida: personajes desbloqueados para playerId: {}", playerId);
+                    return characterService.getUnlockedCharacters(playerId)
+                            .collectList()
+                            .flatMap(characters -> {
+                                if (characters.isEmpty()) {
+                                    logger.warn("No hay personajes desbloqueados para este jugador.");
+                                    return ServerResponse.noContent().build();
+                                }
+                                logger.info("Personajes desbloqueados encontrados: {}", characters.size());
+                                return ServerResponse.ok().bodyValue(characters);
+                            });
+                })
+                .doOnError(e -> logger.error("Error al obtener personajes desbloqueados: {}", e.getMessage()))
+                .onErrorResume(e -> ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .bodyValue("Error al recuperar personajes desbloqueados"));
+    }
+
+
     //! Permite desbloquear un personaje utilizando tokens, asociándolo con el jugador
 //    public Mono<ServerResponse> unlockCharacter(ServerRequest request) {
 //        String playerId = request.pathVariable("playerId");

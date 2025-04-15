@@ -124,8 +124,8 @@ class AuthHandlerTest {
         // Mock de JwtService
         Claims mockClaims = Jwts.claims().setSubject("user1");
         mockClaims.put("role", "USER");
-        when(jwtService.validateToken("validToken")).thenReturn(true); // ✅ Primero validamos
-        when(jwtService.getClaims("validToken")).thenReturn(mockClaims); // ✅ Luego extraemos claims
+        when(jwtService.validateToken("validToken")).thenReturn(true);
+        when(jwtService.getClaims("validToken")).thenReturn(mockClaims);
 
         StepVerifier.create(authHandler.validateToken(request))
                 .expectNextMatches(res -> {
@@ -162,12 +162,11 @@ class AuthHandlerTest {
     @Test
     void validateToken_MissingToken() {
         ServerRequest.Headers headersMock = Mockito.mock(ServerRequest.Headers.class);
-        when(request.headers()).thenReturn(headersMock); // ✅ Mock imprescindible
-        when(headersMock.firstHeader("Authorization")).thenReturn(null); // ✅ Simula token faltante
+        when(request.headers()).thenReturn(headersMock);
+        when(headersMock.firstHeader("Authorization")).thenReturn(null);
 
         StepVerifier.create(authHandler.validateToken(request))
                 .expectNextMatches(res -> res.statusCode() == HttpStatus.UNAUTHORIZED)
                 .verifyComplete();
     }
-
 }

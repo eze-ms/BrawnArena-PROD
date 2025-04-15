@@ -35,19 +35,28 @@ public class CharacterServiceImpl implements CharacterService {
     @Override
     public Flux<Character> getUnlockedCharacters(String playerId) {
         return characterRepository.findAll()
-                .filter(character -> character.isUnlocked() && character.getPlayerId().equals(playerId));
+                .doOnSubscribe(sub -> logger.info("Buscando personajes desbloqueados para playerId: {}", playerId))
+                .filter(character -> character.isUnlocked() && playerId.equals(character.getPlayerId()))
+                .doOnNext(character -> logger.debug("Personaje desbloqueado encontrado: {}", character.getName()))
+                .switchIfEmpty(Flux.defer(() -> {
+                    logger.warn("No se encontraron personajes desbloqueados para playerId: {}", playerId);
+                    return Flux.empty();
+                }))
+                .doOnError(error -> logger.error("Error al obtener personajes desbloqueados: {}", error.getMessage()));
     }
 
+    
+    //! PENDIENTE
     @Override
     public Mono<Boolean> unlockCharacter(String playerId, String characterId) {
         // Implementación pendiente
         return Mono.empty();
     }
 
+    //! PENDIENTE
     @Override
     public Mono<Character> getCharacterDetail(String characterId) {
         // Implementación pendiente
         return Mono.empty();
     }
-
 }

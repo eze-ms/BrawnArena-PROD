@@ -9,11 +9,15 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import reactor.core.publisher.Mono;
 import org.springframework.web.reactive.function.server.EntityResponse;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.mockito.Mockito.when;
@@ -32,6 +36,21 @@ class CharacterHandlerTest {
 
     @InjectMocks
     private CharacterHandler characterHandler;
+
+    // Método helper para crear Characters de prueba
+    private Character createTestCharacter(String id, String playerId, boolean unlocked) {
+        return new Character(
+                id,                        // @Id
+                "TestName",                // name
+                "TestDescription",         // description
+                "Medium",                  // difficulty
+                new ArrayList<>(),         // pieces
+                new ArrayList<>(),         // powers
+                unlocked,                  // unlocked
+                "test.png",                // imageUrl
+                playerId                   // playerId
+        );
+    }
 
     @Test
     void getCharacterAllId_ReturnsOkWithFreeCharacters() {
@@ -75,4 +94,54 @@ class CharacterHandlerTest {
                 })
                 .verifyComplete();
     }
+
+    //! Test para personajes desbloqueados
+    @Test
+    void getCharacterId_ReturnsUnlockedCharacters() {
+        // Configura
+        Authentication auth = new UsernamePasswordAuthenticationToken("player1", "");
+        when(request.principal())
+                .thenAnswer(inv -> Mono.just(auth)); // ← Solución clave
+
+        when(characterService.getUnlockedCharacters("player1"))
+                .thenReturn(Flux.just(createTestCharacter("1", "player1", true)));
+
+        // Ejecuta y verifica
+        StepVerifier.create(characterHandler.getCharacterId(request))
+                .expectNextMatches(r -> r.statusCode() == HttpStatus.OK)
+                .verifyComplete();
+    }
+
+    //! Test para personajes desbloqueados
+    @Test
+    void getCharacterId_ReturnsNoContentWhenEmpty() {
+        Authentication auth = new UsernamePasswordAuthenticationToken("player1", "");
+
+        when(request.principal())
+                .thenAnswer(inv -> Mono.just(auth)); // ← Mock consistente
+        when(characterService.getUnlockedCharacters("player1"))
+                .thenReturn(Flux.empty());
+
+        StepVerifier.create(characterHandler.getCharacterId(request))
+                .expectNextMatches(response ->
+                        response.statusCode() == HttpStatus.NO_CONTENT) // 204
+                .verifyComplete();
+    }
+
+    //! Test para errores
+    @Test
+    void getCharacterId_Returns500OnError() {
+        Authentication auth = new UsernamePasswordAuthenticationToken("player1", "");
+
+        when(request.principal())
+                .thenAnswer(inv -> Mono.just(auth));
+        when(characterService.getUnlockedCharacters("player1"))
+                .thenReturn(Flux.error(new RuntimeException("DB Error")));
+
+        StepVerifier.create(characterHandler.getCharacterId(request))
+                .expectNextMatches(response ->
+                        response.statusCode() == HttpStatus.INTERNAL_SERVER_ERROR) // 500
+                .verifyComplete();
+    }
+
 }

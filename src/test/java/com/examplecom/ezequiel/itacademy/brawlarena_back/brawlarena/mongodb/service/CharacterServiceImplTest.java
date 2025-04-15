@@ -10,6 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.mockito.Mockito.when;
@@ -23,6 +24,22 @@ class CharacterServiceImplTest {
     @InjectMocks
     private CharacterServiceImpl characterService;
 
+    // Método helper para crear Characters de prueba
+    private Character createTestCharacter(String id, String playerId, boolean unlocked) {
+        return new Character(
+                id,
+                "Test-" + id,
+                "Descripción",
+                "Medium",
+                new ArrayList<>(),
+                new ArrayList<>(),
+                unlocked,
+                "image.png",
+                playerId
+        );
+    }
+
+    //! Test getAllFreeCharacters
     @Test
     void getAllFreeCharacters_ReturnsFilteredCharacters() {
         Character lockedChar1 = new Character("1", "Locked", "desc", "easy", null, null, false, "img1", "player1");
@@ -66,4 +83,47 @@ class CharacterServiceImplTest {
                 .verify();
 
     }
+
+    //! Test getUnlockedCharacters
+    @Test
+    void getUnlockedCharacters_ReturnsFilteredCharacters() {
+        // Datos de prueba
+        Character unlockedChar = createTestCharacter("1", "player1", true);
+        Character lockedChar = createTestCharacter("2", "player1", false);
+        Character otherPlayerChar = createTestCharacter("3", "player2", true);
+
+        // Mock del repositorio
+        when(characterRepository.findAll())
+                .thenReturn(Flux.just(unlockedChar, lockedChar, otherPlayerChar));
+
+        // Ejecución y verificación
+        StepVerifier.create(characterService.getUnlockedCharacters("player1"))
+                .expectNextMatches(character ->
+                        character.getId().equals("1") &&
+                                character.isUnlocked() &&
+                                character.getPlayerId().equals("player1")
+                )
+                .expectComplete()
+                .verify();
+    }
+
+    @Test
+    void getUnlockedCharacters_ReturnsEmptyWhenNoMatches() {
+        when(characterRepository.findAll())
+                .thenReturn(Flux.empty());
+
+        StepVerifier.create(characterService.getUnlockedCharacters("player1"))
+                .verifyComplete();
+    }
+
+    @Test
+    void getUnlockedCharacters_PropagatesErrors() {
+        when(characterRepository.findAll())
+                .thenReturn(Flux.error(new RuntimeException("DB Error")));
+
+        StepVerifier.create(characterService.getUnlockedCharacters("player1"))
+                .expectError(RuntimeException.class)
+                .verify();
+    }
+
 }
