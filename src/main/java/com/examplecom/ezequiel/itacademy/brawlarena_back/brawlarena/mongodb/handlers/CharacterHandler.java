@@ -1,9 +1,20 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.handlers;
 
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.CharacterService;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.security.JwtService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -23,6 +34,29 @@ public class CharacterHandler {
     }
 
     //! Devuelve la lista de personajes gratuitos
+    @Operation(
+            summary = "Obtener personajes gratuitos",
+            description = "Devuelve una lista de personajes que aún no han sido desbloqueados por ningún jugador.",
+            security = @SecurityRequirement(name = "bearerAuth"),
+            operationId = "getCharacterAllId"
+    )
+    @ApiResponses(
+            value = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Personajes gratuitos obtenidos correctamente.",
+                            content = @Content(schema = @Schema(implementation = Character.class))
+                    ),
+                    @ApiResponse(
+                            responseCode = "204",
+                            description = "No hay personajes gratuitos disponibles."
+                    ),
+                    @ApiResponse(
+                            responseCode = "500",
+                            description = "Error interno al recuperar personajes gratuitos."
+                    )
+            }
+    )
     public Mono<ServerResponse> getCharacterAllId(ServerRequest request) {
         logger.info("Solicitud recibida: obtener personajes gratuitos");
         return characterService.getAllFreeCharacters()
@@ -36,6 +70,33 @@ public class CharacterHandler {
     }
 
     //! Devuelve los personajes que el jugador ha desbloqueado
+    @Operation(
+            summary = "Desbloquear personaje",
+            description = "Permite desbloquear un personaje específico para el jugador autenticado mediante su ID.",
+            operationId = "unlockCharacter",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(
+            value = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Personaje desbloqueado correctamente o ya estaba desbloqueado"
+                    ),
+                    @ApiResponse(
+                            responseCode = "400",
+                            description = "Falta el parámetro 'characterId'"
+                    ),
+                    @ApiResponse(
+                            responseCode = "404",
+                            description = "Personaje no encontrado"
+                    ),
+                    @ApiResponse(
+                            responseCode = "500",
+                            description = "Error interno al intentar desbloquear el personaje"
+                    )
+            }
+    )
+
     public Mono<ServerResponse> getCharacterId(ServerRequest request) {
         return request.principal()
                 .cast(Authentication.class)
@@ -53,8 +114,41 @@ public class CharacterHandler {
                 });
     }
 
-
     //! Permite desbloquear un personaje utilizando tokens, asociándolo con el jugador
+    @Operation(
+            summary = "Desbloquear personaje",
+            description = "Permite desbloquear un personaje específico para el jugador autenticado mediante su ID.",
+            operationId = "unlockCharacter",
+            security = @SecurityRequirement(name = "bearerAuth"),
+            parameters = {
+                    @Parameter(
+                            name = "characterId",
+                            in = ParameterIn.QUERY,
+                            required = true,
+                            description = "ID del personaje que se desea desbloquear"
+                    )
+            }
+    )
+    @ApiResponses(
+            value = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Personaje desbloqueado correctamente o ya estaba desbloqueado"
+                    ),
+                    @ApiResponse(
+                            responseCode = "400",
+                            description = "Falta el parámetro 'characterId'"
+                    ),
+                    @ApiResponse(
+                            responseCode = "404",
+                            description = "Personaje no encontrado"
+                    ),
+                    @ApiResponse(
+                            responseCode = "500",
+                            description = "Error interno al intentar desbloquear el personaje"
+                    )
+            }
+    )
     public Mono<ServerResponse> unlockCharacter(ServerRequest request) {
         String characterId = request.queryParam("characterId")
                 .orElse(null);
@@ -82,6 +176,36 @@ public class CharacterHandler {
 
 
     //! Devuelve la información detallada de un personaje específico, como poderes y dificultad
+    @Operation(
+            summary = "Obtener detalles de un personaje",
+            description = "Devuelve los detalles completos de un personaje específico a partir de su ID.",
+            operationId = "getCharacterDetail",
+            security = @SecurityRequirement(name = "bearerAuth"),
+            parameters = {
+                    @Parameter(
+                            in = ParameterIn.PATH,
+                            name = "id",
+                            required = true,
+                            description = "ID del personaje a consultar"
+                    )
+
+            }
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Detalles del personaje encontrados",
+                    content = @Content(schema = @Schema(implementation = Character.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Personaje no encontrado"
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "Error interno al recuperar detalles del personaje"
+            )
+    })
     public Mono<ServerResponse> getCharacterDetail(ServerRequest request) {
         String characterId = request.pathVariable("id");
         logger.info("Solicitud recibida: detalles del personaje con ID {}", characterId);
@@ -89,5 +213,4 @@ public class CharacterHandler {
         return characterService.getCharacterDetail(characterId)
                 .flatMap(character -> ServerResponse.ok().bodyValue(character));
     }
-
 }

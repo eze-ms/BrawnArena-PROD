@@ -14,7 +14,7 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 
 @Configuration
-@Tag(name = "Braw Arena API", description = "Endpoints para gestionar el acceso a Brawl Arena")
+@Tag(name = "Auth", description = "Endpoints para gestionar el acceso")
 public class AuthRouterConfig {
 
     @Bean
