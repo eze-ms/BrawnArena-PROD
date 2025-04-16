@@ -1,5 +1,6 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.handlers;
 
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.CharacterService;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.security.JwtService;
@@ -17,9 +18,7 @@ import org.springframework.web.reactive.function.server.ServerRequest;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static org.mockito.Mockito.when;
 
@@ -38,7 +37,7 @@ class CharacterHandlerTest {
     @InjectMocks
     private CharacterHandler characterHandler;
 
-    // Método helper para crear Characters de prueba
+    //* Helper para crear Characters de prueba
     private Character createTestCharacter(String id, String playerId, boolean unlocked) {
         return new Character(
                 id,                        // @Id
@@ -53,12 +52,19 @@ class CharacterHandlerTest {
         );
     }
 
-    // Helper para mockear query params
+    //* Helper para mockear query params
     private void mockQueryParams(String key, String value) {
         when(request.queryParam(key)).thenReturn(Optional.ofNullable(value));
     }
+    //* Helper para path variables
+    private void mockPathVariables(String key, String value) {
+        Map<String, String> pathVariables = new HashMap<>();
+        pathVariables.put(key, value);
+        when(request.pathVariables()).thenReturn(pathVariables);
+    }
 
-    //*** getCharacterAllId ***//
+
+    //! getCharacterAllId
     @Test
     void getCharacterAllId_ReturnsOkWithFreeCharacters() {
         // Arrange - Usa el FQN implícito gracias al import
@@ -81,29 +87,20 @@ class CharacterHandlerTest {
                 .verifyComplete();
     }
 
+    // test para cuando la lista esté vacía
     @Test
-    void getCharacterAllId_Returns500OnError() {
+    void getCharacterAllId_NoFreeCharacters_ReturnsNoContent() {
         // Arrange
-        when(characterService.getAllFreeCharacters())
-                .thenReturn(Flux.error(new RuntimeException("DB Error")));
+        when(characterService.getAllFreeCharacters()).thenReturn(Flux.empty());
 
         // Act & Assert
         StepVerifier.create(characterHandler.getCharacterAllId(request))
-                .expectNextMatches(response -> {
-                    // Verify status code
-                    boolean statusMatches = response.statusCode() == HttpStatus.INTERNAL_SERVER_ERROR;
-
-                    // Verify error message body
-                    String body = (String) ((EntityResponse) response).entity();
-                    boolean bodyMatches = body.equals("Error al recuperar personajes gratuitos");
-
-                    return statusMatches && bodyMatches;
-                })
+                .expectNextMatches(response -> response.statusCode() == HttpStatus.NO_CONTENT)
                 .verifyComplete();
     }
 
-    //*** getCharacterId ***//
-    //! Test para personajes desbloqueados
+    //! getCharacterId
+    // test para personajes desbloqueados
     @Test
     void getCharacterId_ReturnsUnlockedCharacters() {
         // Configura
@@ -120,7 +117,7 @@ class CharacterHandlerTest {
                 .verifyComplete();
     }
 
-    //! Test para personajes desbloqueados
+    // test para personajes desbloqueados
     @Test
     void getCharacterId_ReturnsNoContentWhenEmpty() {
         Authentication auth = new UsernamePasswordAuthenticationToken("player1", "");
@@ -136,23 +133,8 @@ class CharacterHandlerTest {
                 .verifyComplete();
     }
 
-    //! Test para errores
-    @Test
-    void getCharacterId_Returns500OnError() {
-        Authentication auth = new UsernamePasswordAuthenticationToken("player1", "");
 
-        when(request.principal())
-                .thenAnswer(inv -> Mono.just(auth));
-        when(characterService.getUnlockedCharacters("player1"))
-                .thenReturn(Flux.error(new RuntimeException("DB Error")));
-
-        StepVerifier.create(characterHandler.getCharacterId(request))
-                .expectNextMatches(response ->
-                        response.statusCode() == HttpStatus.INTERNAL_SERVER_ERROR) // 500
-                .verifyComplete();
-    }
-
-    //*** unlockCharacter ***//
+    //! unlockCharacter
     @Test
     void unlockCharacter_MissingCharacterId_ReturnsBadRequest() {
         // Arrange
@@ -207,21 +189,49 @@ class CharacterHandlerTest {
                 .verifyComplete();
     }
 
+
+    //! getCharacterDetail
     @Test
-    void unlockCharacter_ServiceError_Returns500() {
-        // Arrange
-        mockQueryParams("characterId", "char1");
-        Authentication auth = new UsernamePasswordAuthenticationToken("player1", "");
+    void getCharacterDetail_ReturnsCharacterDetails() {
+        // 1. Mock exacto del método usado en el handler
+        when(request.pathVariable("id")).thenReturn("char1");  // ← Cambio clave
 
-        when(request.principal())
-                .thenAnswer(inv -> Mono.just(auth));
-        when(characterService.unlockCharacter("player1", "char1"))
-                .thenReturn(Mono.error(new RuntimeException("DB Error")));
+        // 2. Mock del service
+        Character testChar = createTestCharacter("char1", "player1", true);
+        when(characterService.getCharacterDetail("char1"))
+                .thenReturn(Mono.just(testChar));
 
-        // Act & Assert
-        StepVerifier.create(characterHandler.unlockCharacter(request))
+        // 3. Act/Assert
+        StepVerifier.create(characterHandler.getCharacterDetail(request))
                 .expectNextMatches(response ->
-                        response.statusCode() == HttpStatus.INTERNAL_SERVER_ERROR)
+                        response.statusCode() == HttpStatus.OK)
                 .verifyComplete();
     }
+
+    @Test
+    void getCharacterDetail_NotFound_ThrowsException() {
+        // Arrange
+        when(request.pathVariable("id")).thenReturn("char1");
+        when(characterService.getCharacterDetail("char1"))
+                .thenReturn(Mono.error(new CharacterNotFoundException("char1")));
+
+        // Act & Assert
+        StepVerifier.create(characterHandler.getCharacterDetail(request))
+                .expectError(CharacterNotFoundException.class)
+                .verify();
+    }
+
+    @Test
+    void getCharacterDetail_ServiceError_PropagatesException() {
+        // Arrange
+        when(request.pathVariable("id")).thenReturn("char1");
+        when(characterService.getCharacterDetail("char1"))
+                .thenReturn(Mono.error(new RuntimeException("Unexpected error")));
+
+        // Act & Assert
+        StepVerifier.create(characterHandler.getCharacterDetail(request))
+                .expectError(RuntimeException.class)
+                .verify();
+    }
+
 }

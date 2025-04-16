@@ -4,7 +4,6 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.serv
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.security.JwtService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -25,23 +24,16 @@ public class CharacterHandler {
 
     //! Devuelve la lista de personajes gratuitos
     public Mono<ServerResponse> getCharacterAllId(ServerRequest request) {
+        logger.info("Solicitud recibida: obtener personajes gratuitos");
         return characterService.getAllFreeCharacters()
-                .doOnSubscribe(sub -> logger.info("Solicitud recibida: obtener personajes gratuitos"))
                 .collectList()
                 .flatMap(characters -> {
                     if (characters.isEmpty()) {
-                        logger.warn("No hay personajes gratuitos disponibles.");
                         return ServerResponse.noContent().build(); // 204 No Content
                     }
-                    logger.info("Personajes gratuitos encontrados: {}", characters.size());
                     return ServerResponse.ok().bodyValue(characters);
-                })
-                .doOnError(e -> logger.error("Error al obtener personajes gratuitos: {}", e.getMessage()))
-                .onErrorResume(e -> ServerResponse
-                        .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .bodyValue("Error al recuperar personajes gratuitos"));
+                });
     }
-
 
     //! Devuelve los personajes que el jugador ha desbloqueado
     public Mono<ServerResponse> getCharacterId(ServerRequest request) {
@@ -49,21 +41,16 @@ public class CharacterHandler {
                 .cast(Authentication.class)
                 .map(Authentication::getName)
                 .flatMap(playerId -> {
-                    logger.info("Solicitud recibida: personajes desbloqueados para playerId: {}", playerId);
+                    logger.info("Solicitud recibida: obtener personajes desbloqueados para playerId: {}", playerId);
                     return characterService.getUnlockedCharacters(playerId)
                             .collectList()
                             .flatMap(characters -> {
                                 if (characters.isEmpty()) {
-                                    logger.warn("No hay personajes desbloqueados para este jugador.");
                                     return ServerResponse.noContent().build();
                                 }
-                                logger.info("Personajes desbloqueados encontrados: {}", characters.size());
                                 return ServerResponse.ok().bodyValue(characters);
                             });
-                })
-                .doOnError(e -> logger.error("Error al obtener personajes desbloqueados: {}", e.getMessage()))
-                .onErrorResume(e -> ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .bodyValue("Error al recuperar personajes desbloqueados"));
+                });
     }
 
 
@@ -90,19 +77,17 @@ public class CharacterHandler {
                                     return ServerResponse.ok().bodyValue("El personaje ya estaba desbloqueado");
                                 }
                             });
-                })
-                .doOnError(e -> logger.error("Error al desbloquear personaje: {}", e.getMessage()))
-                .onErrorResume(e -> ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .bodyValue("Error al procesar la solicitud de desbloqueo"));
+                });
     }
 
 
     //! Devuelve la información detallada de un personaje específico, como poderes y dificultad
-//    public Mono<ServerResponse> getCharacterDetail(ServerRequest request) {
-//        String characterId = request.pathVariable("characterId");
-//        return characterService.getCharacterDetail(characterId)
-//                .flatMap(character -> ServerResponse.ok().bodyValue(character))
-//                .onErrorResume(e -> ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue("Character not found"));
-//    }
+    public Mono<ServerResponse> getCharacterDetail(ServerRequest request) {
+        String characterId = request.pathVariable("id");
+        logger.info("Solicitud recibida: detalles del personaje con ID {}", characterId);
+
+        return characterService.getCharacterDetail(characterId)
+                .flatMap(character -> ServerResponse.ok().bodyValue(character));
+    }
 
 }

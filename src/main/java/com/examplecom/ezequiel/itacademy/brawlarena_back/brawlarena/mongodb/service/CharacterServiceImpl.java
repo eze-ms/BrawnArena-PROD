@@ -69,10 +69,16 @@ public class CharacterServiceImpl implements CharacterService {
                 .doOnError(error -> logger.error("Error al desbloquear personaje: {}", error.getMessage()));
     }
 
-    //! PENDIENTE
     @Override
     public Mono<Character> getCharacterDetail(String characterId) {
-        // Implementación pendiente
-        return Mono.empty();
+        return characterRepository.findById(characterId)
+                .doOnSubscribe(sub -> logger.info("Buscando detalles del personaje con ID: {}", characterId))
+                .switchIfEmpty(Mono.defer(() -> {
+                    logger.warn("Personaje con ID {} no encontrado", characterId);
+                    return Mono.error(new CharacterNotFoundException("Personaje no encontrado"));
+                }))
+                .doOnSuccess(character -> logger.info("Detalles del personaje obtenidos: {}", character.getName()))
+                .doOnError(error -> logger.error("Error al obtener detalles del personaje: {}", error.getMessage()));
     }
+
 }

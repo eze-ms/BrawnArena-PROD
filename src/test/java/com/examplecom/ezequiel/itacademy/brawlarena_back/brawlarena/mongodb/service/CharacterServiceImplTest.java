@@ -45,10 +45,10 @@ class CharacterServiceImplTest {
     //! Test getAllFreeCharacters
     @Test
     void getAllFreeCharacters_ReturnsFilteredCharacters() {
+
         Character lockedChar1 = new Character("1", "Locked", "desc", "easy", null, null, false, "img1", "player1");
         Character lockedChar2 = new Character("2", "Locked", "desc", "easy", null, null, false, "img1", "player2");
         Character unlockedChar = new Character("Unlocked", "Locked", "desc", "easy", null, null, true, "img1", "player2");
-
 
         when(characterRepository.findAll())
                 .thenReturn(Flux.just(lockedChar1, unlockedChar, lockedChar2));
@@ -61,23 +61,22 @@ class CharacterServiceImplTest {
 
     @Test
     void getAllFreeCharacters_EmptyWhenNoResults() {
-        // Arrange
+
         when(characterRepository.findAll())
                 .thenReturn(Flux.empty());
 
-        // Act & Assert
         StepVerifier.create(characterService.getAllFreeCharacters())
                 .verifyComplete();
     }
 
     @Test
     void getAllFreeCharacters_LogsErrorOnFailure() {
-        // Arrange
+
         RuntimeException simulatedError = new RuntimeException("Error de base de datos");
         when(characterRepository.findAll())
                 .thenReturn(Flux.error(simulatedError)); // Simula error en el repositorio
 
-        // Act & Assert
+
         StepVerifier.create(characterService.getAllFreeCharacters())
                 .expectErrorMatches(error -> {
 
@@ -87,19 +86,19 @@ class CharacterServiceImplTest {
 
     }
 
-    //! Test getUnlockedCharacters
+    //! Test para getUnlockedCharacters
     @Test
     void getUnlockedCharacters_ReturnsFilteredCharacters() {
-        // Datos de prueba
+
         Character unlockedChar = createTestCharacter("1", "player1", true);
         Character lockedChar = createTestCharacter("2", "player1", false);
         Character otherPlayerChar = createTestCharacter("3", "player2", true);
 
-        // Mock del repositorio
+
         when(characterRepository.findAll())
                 .thenReturn(Flux.just(unlockedChar, lockedChar, otherPlayerChar));
 
-        // Ejecución y verificación
+
         StepVerifier.create(characterService.getUnlockedCharacters("player1"))
                 .expectNextMatches(character ->
                         character.getId().equals("1") &&
@@ -112,6 +111,7 @@ class CharacterServiceImplTest {
 
     @Test
     void getUnlockedCharacters_ReturnsEmptyWhenNoMatches() {
+
         when(characterRepository.findAll())
                 .thenReturn(Flux.empty());
 
@@ -121,6 +121,7 @@ class CharacterServiceImplTest {
 
     @Test
     void getUnlockedCharacters_PropagatesErrors() {
+
         when(characterRepository.findAll())
                 .thenReturn(Flux.error(new RuntimeException("DB Error")));
 
@@ -129,10 +130,11 @@ class CharacterServiceImplTest {
                 .verify();
     }
 
-    //! Test unlockCharacter
+    //! Test para unlockCharacter
     // Desbloqueo exitoso
     @Test
     void unlockCharacter_SuccessfullyUnlocks_ReturnsTrue() {
+
         Character lockedChar = createTestCharacter("char1", null, false);
         Character savedChar = createTestCharacter("char1", "player1", true);
 
@@ -146,11 +148,11 @@ class CharacterServiceImplTest {
                 .verifyComplete();
     }
 
-    // Test 2: Personaje ya desbloqueado
+    // Personaje ya desbloqueado
     @Test
     void unlockCharacter_AlreadyUnlocked_ReturnsFalse() {
-        Character unlockedChar = createTestCharacter("char1", "player1", true);
 
+        Character unlockedChar = createTestCharacter("char1", "player1", true);
         when(characterRepository.findById("char1"))
                 .thenReturn(Mono.just(unlockedChar));
 
@@ -159,9 +161,10 @@ class CharacterServiceImplTest {
                 .verifyComplete();
     }
 
-    // Test 3: Personaje no encontrado
+    // Personaje no encontrado
     @Test
     void unlockCharacter_NotFound_ThrowsException() {
+
         when(characterRepository.findById("char1"))
                 .thenReturn(Mono.empty());
 
@@ -171,9 +174,10 @@ class CharacterServiceImplTest {
                 .verify();
     }
 
-    // Test 4: Error en repositorio
+    // Error en repositorio
     @Test
     void unlockCharacter_RepositoryError_PropagatesError() {
+
         when(characterRepository.findById("char1"))
                 .thenReturn(Mono.error(new RuntimeException("DB Error")));
 
@@ -182,5 +186,43 @@ class CharacterServiceImplTest {
                 .verify();
     }
 
+    //! Tests para getCharacterDetail
+    @Test
+    void getCharacterDetail_ReturnsCharacterWhenExists() {
+
+        Character testChar = createTestCharacter("char1", "player1", true);
+        when(characterRepository.findById("char1"))
+                .thenReturn(Mono.just(testChar));
+
+        StepVerifier.create(characterService.getCharacterDetail("char1"))
+                .expectNextMatches(character ->
+                        character.getId().equals("char1") &&
+                                character.getName().equals("Test-char1"))
+                .verifyComplete();
+    }
+
+    @Test
+    void getCharacterDetail_ThrowsWhenCharacterNotFound() {
+
+        when(characterRepository.findById("char1"))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(characterService.getCharacterDetail("char1"))
+                .expectErrorMatches(ex ->
+                        ex instanceof CharacterNotFoundException &&
+                                ex.getMessage().equals("Personaje no encontrado"))
+                .verify();
+    }
+
+    @Test
+    void getCharacterDetail_PropagatesRepositoryErrors() {
+
+        when(characterRepository.findById("char1"))
+                .thenReturn(Mono.error(new RuntimeException("DB Error")));
+
+        StepVerifier.create(characterService.getCharacterDetail("char1"))
+                .expectError(RuntimeException.class)
+                .verify();
+    }
 
 }

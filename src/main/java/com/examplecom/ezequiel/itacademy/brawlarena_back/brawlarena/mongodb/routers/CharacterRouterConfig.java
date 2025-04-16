@@ -18,6 +18,7 @@ public class CharacterRouterConfig {
                 .GET("/characters/free", handler::getCharacterAllId)
                 .GET("/characters/unlocked", handler::getCharacterId)
                 .POST("/characters/unlock", handler::unlockCharacter)
+                .GET("/characters/{id}", handler::getCharacterDetail)
                 .build();
     }
 }
