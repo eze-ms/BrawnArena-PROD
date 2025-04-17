@@ -8,18 +8,30 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
+import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 import org.springframework.web.reactive.function.server.EntityResponse;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
+
+
 import java.util.*;
 
+import static com.mongodb.assertions.Assertions.assertNull;
+import static com.mongodb.internal.connection.tlschannel.util.Util.assertTrue;
+import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,11 +56,12 @@ class CharacterHandlerTest {
                 "TestName",                // name
                 "TestDescription",         // description
                 "Medium",                  // difficulty
-                new ArrayList<>(),         // pieces
-                new ArrayList<>(),         // powers
-                unlocked,                  // unlocked
-                "test.png",                // imageUrl
-                playerId                   // playerId
+                new ArrayList<>(),        // pieces
+                new ArrayList<>(),        // powers
+                unlocked,                 // unlocked
+                "test.png",               // imageUrl
+                playerId,                 // playerId
+                0                         // cost (valor por defecto para tests)
         );
     }
 
@@ -65,37 +78,152 @@ class CharacterHandlerTest {
 
 
     //! getCharacterAllId
+//    @Test
+//    void getCharacterAllId_ReturnsOkWithFreeCharacters() {
+//        // Arrange - Usa el FQN implícito gracias al import
+//        List<Character> mockCharacters = List.of(
+//                new Character("1", "Free1", "desc", "easy", null, null, false, "img1", "player1", 0),
+//                new Character("2", "Free2", "desc", "easy", null, null, false, "img2", "player2", 0)
+//        );
+//
+//        when(characterService.getAllFreeCharacters())
+//                .thenReturn(Flux.fromIterable(mockCharacters));
+//
+//        // Act & Assert (igual que antes)
+//        StepVerifier.create(characterHandler.getCharacterAllId(request))
+//                .expectNextMatches(response -> {
+//                    // Para bodyValue():
+//                    Object body = ((EntityResponse) response).entity();
+//                    return response.statusCode() == HttpStatus.OK
+//                            && ((List<Character>) body).size() == 2;
+//                })
+//                .verifyComplete();
+//    }
+//
+//    // test para cuando la lista esté vacía
+//    @Test
+//    void getCharacterAllId_NoFreeCharacters_ReturnsNoContent() {
+//        // Arrange
+//        when(characterService.getAllFreeCharacters()).thenReturn(Flux.empty());
+//
+//        // Act & Assert
+//        StepVerifier.create(characterHandler.getCharacterAllId(request))
+//                .expectNextMatches(response -> response.statusCode() == HttpStatus.NO_CONTENT)
+//                .verifyComplete();
+//    }
+
+    //! getAllCharacters
+    // Respuesta 200 OK con personajes
     @Test
-    void getCharacterAllId_ReturnsOkWithFreeCharacters() {
-        // Arrange - Usa el FQN implícito gracias al import
-        List<Character> mockCharacters = List.of(
-                new Character("1", "Free1", "desc", "easy", null, null, false, "img1", "player1"),
-                new Character("2", "Free2", "desc", "easy", null, null, false, "img2", "player2")
+    void getAllCharacters_ReturnsOkWithValidHeaders() {
+        // Configuración
+        Character testChar = createTestCharacter("1", null, false);
+        when(characterService.getAllCharacters())
+                .thenReturn(Flux.just(testChar));
+
+        // Ejecución
+        Mono<ServerResponse> response = characterHandler.getAllCharacters(
+                ServerRequest.create(
+                        MockServerWebExchange.from(MockServerHttpRequest.get("/")),
+                        Collections.emptyList()
+                )
         );
 
-        when(characterService.getAllFreeCharacters())
-                .thenReturn(Flux.fromIterable(mockCharacters));
+        // Validaciones
+        StepVerifier.create(response)
+                .assertNext(res -> {
+                    // 1. Verificar status code
+                    assertEquals(HttpStatus.OK, res.statusCode());
 
-        // Act & Assert (igual que antes)
-        StepVerifier.create(characterHandler.getCharacterAllId(request))
-                .expectNextMatches(response -> {
-                    // Para bodyValue():
-                    Object body = ((EntityResponse) response).entity();
-                    return response.statusCode() == HttpStatus.OK
-                            && ((List<Character>) body).size() == 2;
+                    // 2. Verificar Content-Type EXPLÍCITO
+                    HttpHeaders headers = res.headers();
+                    assertNotNull(headers.getContentType(), "Content-Type no debe ser nulo");
+                    assertEquals(
+                            MediaType.APPLICATION_JSON,
+                            headers.getContentType(),
+                            "Debe ser application/json"
+                    );
+
+                    // 3. Verificar headers personalizados
+                    assertEquals("1.0", headers.getFirst("X-API-Version"));
                 })
                 .verifyComplete();
     }
 
-    // test para cuando la lista esté vacía
+    // Respuesta 204 No Content
     @Test
-    void getCharacterAllId_NoFreeCharacters_ReturnsNoContent() {
-        // Arrange
-        when(characterService.getAllFreeCharacters()).thenReturn(Flux.empty());
+    void getAllCharacters_ReturnsNoContentWhenEmpty() {
+        // Configuración
+        when(characterService.getAllCharacters())
+                .thenReturn(Flux.empty());
 
-        // Act & Assert
-        StepVerifier.create(characterHandler.getCharacterAllId(request))
-                .expectNextMatches(response -> response.statusCode() == HttpStatus.NO_CONTENT)
+        // Ejecución
+        Mono<ServerResponse> response = characterHandler.getAllCharacters(
+                ServerRequest.create(
+                        MockServerWebExchange.from(MockServerHttpRequest.get("/")),
+                        Collections.emptyList()
+                )
+        );
+
+        // Validaciones
+        StepVerifier.create(response)
+                .assertNext(res -> {
+                    assertEquals(HttpStatus.NO_CONTENT, res.statusCode());
+                    assertNull(res.headers().getContentType()); // 204 no debe tener body
+                    assertEquals("1.0", res.headers().getFirst("X-API-Version"));
+                })
+                .verifyComplete();
+    }
+
+    // Manejo de errores
+    @Test
+    void getAllCharacters_PropagatesServiceError() {
+        // Configuración
+        when(characterService.getAllCharacters())
+                .thenReturn(Flux.error(new RuntimeException("Error en base de datos")));
+
+        // Ejecución y validación
+        StepVerifier.create(
+                        characterHandler.getAllCharacters(
+                                ServerRequest.create(
+                                        MockServerWebExchange.from(MockServerHttpRequest.get("/")),
+                                        Collections.emptyList()
+                                )
+                        )
+                )
+                .expectErrorMatches(ex -> {
+                    assertTrue(ex instanceof RuntimeException);
+                    assertEquals("Error en base de datos", ex.getMessage());
+                    return true;
+                })
+                .verify();
+    }
+
+    // validación de headers (sin Accept)
+    @Test
+    void getAllCharacters_ForceJsonResponseEvenWithoutAcceptHeader() {
+        // Configuración
+        Character testChar = createTestCharacter("1", null, false);
+        when(characterService.getAllCharacters())
+                .thenReturn(Flux.just(testChar));
+
+        // Request SIN header Accept
+        MockServerHttpRequest request = MockServerHttpRequest.get("/").build();
+
+        // Ejecución
+        Mono<ServerResponse> response = characterHandler.getAllCharacters(
+                ServerRequest.create(
+                        MockServerWebExchange.from(request),
+                        Collections.emptyList()
+                )
+        );
+
+        // Validaciones
+        StepVerifier.create(response)
+                .assertNext(res -> {
+                    assertEquals(HttpStatus.OK, res.statusCode());
+                    assertEquals(MediaType.APPLICATION_JSON, res.headers().getContentType()); // ¡Debe forzar JSON!
+                })
                 .verifyComplete();
     }
 

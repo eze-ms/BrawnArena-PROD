@@ -1,11 +1,6 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.routers;
 
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.handlers.CharacterHandler;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.handler.UserHandler;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springdoc.core.annotations.RouterOperation;
 import org.springdoc.core.annotations.RouterOperations;
@@ -24,11 +19,18 @@ public class CharacterRouterConfig {
 
     @Bean
     @RouterOperations({
+//            @RouterOperation(
+//                    path = "/characters/free",
+//                    method = RequestMethod.GET,
+//                    beanClass = CharacterHandler.class,
+//                    beanMethod = "getCharacterAllId"
+//            ),
+
             @RouterOperation(
-                    path = "/characters/free",
+                    path = "/characters/all",
                     method = RequestMethod.GET,
                     beanClass = CharacterHandler.class,
-                    beanMethod = "getCharacterAllId"
+                    beanMethod = "getAllCharacters"
             ),
 
             @RouterOperation(
@@ -43,7 +45,6 @@ public class CharacterRouterConfig {
                     method = RequestMethod.POST,
                     beanClass = CharacterHandler.class,
                     beanMethod = "unlockCharacter"
-
             ),
 
             @RouterOperation(
@@ -54,13 +55,14 @@ public class CharacterRouterConfig {
             )
     })
 
-
     public RouterFunction<ServerResponse> characterRoutes(CharacterHandler handler) {
         return route()
-                .GET("/characters/free", handler::getCharacterAllId)
+//                .GET("/characters/free", handler::getCharacterAllId)
+                .GET("/characters/all", handler::getAllCharacters)
                 .GET("/characters/unlocked", handler::getCharacterId)
                 .POST("/characters/unlock", handler::unlockCharacter)
                 .GET("/characters/{id}", handler::getCharacterDetail)
                 .build();
     }
 }
+

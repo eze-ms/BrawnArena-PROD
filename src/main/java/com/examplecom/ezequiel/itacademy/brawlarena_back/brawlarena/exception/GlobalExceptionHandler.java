@@ -27,5 +27,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
 
-
+    @ExceptionHandler(InsufficientTokensException.class)
+    public ResponseEntity<ErrorMessage> handleInsufficientTokensException(InsufficientTokensException ex) {
+        ErrorMessage error = new ErrorMessage(HttpStatus.BAD_REQUEST, ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
 }

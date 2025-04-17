@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -33,41 +34,85 @@ public class CharacterHandler {
         this.jwtService = jwtService;
     }
 
+
     //! Devuelve la lista de personajes gratuitos
+//    @Operation(
+//            summary = "Obtener personajes gratuitos",
+//            description = "Devuelve una lista de personajes que aún no han sido desbloqueados por ningún jugador.",
+//            security = @SecurityRequirement(name = "bearerAuth"),
+//            operationId = "getCharacterAllId"
+//    )
+//    @ApiResponses(
+//            value = {
+//                    @ApiResponse(
+//                            responseCode = "200",
+//                            description = "Personajes gratuitos obtenidos correctamente.",
+//                            content = @Content(schema = @Schema(implementation = Character.class))
+//                    ),
+//                    @ApiResponse(
+//                            responseCode = "204",
+//                            description = "No hay personajes gratuitos disponibles."
+//                    ),
+//                    @ApiResponse(
+//                            responseCode = "500",
+//                            description = "Error interno al recuperar personajes gratuitos."
+//                    )
+//            }
+//    )
+//    public Mono<ServerResponse> getCharacterAllId(ServerRequest request) {
+//        logger.info("Solicitud recibida: obtener personajes gratuitos");
+//        return characterService.getAllFreeCharacters()
+//                .collectList()
+//                .flatMap(characters -> {
+//                    if (characters.isEmpty()) {
+//                        return ServerResponse.noContent().build(); // 204 No Content
+//                    }
+//                    return ServerResponse.ok().bodyValue(characters);
+//                });
+//    }
+
+    //! Devuelve la lista completa de personajes, sin filtrar por desbloqueo o usuario
     @Operation(
-            summary = "Obtener personajes gratuitos",
-            description = "Devuelve una lista de personajes que aún no han sido desbloqueados por ningún jugador.",
+            summary = "Obtener todos los personajes",
+            description = "Devuelve la lista completa de personajes disponibles en el juego, tanto desbloqueados como bloqueados.",
             security = @SecurityRequirement(name = "bearerAuth"),
-            operationId = "getCharacterAllId"
+            operationId = "getAllCharacters"
     )
     @ApiResponses(
             value = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Personajes gratuitos obtenidos correctamente.",
+                            description = "Personajes obtenidos correctamente.",
                             content = @Content(schema = @Schema(implementation = Character.class))
                     ),
                     @ApiResponse(
                             responseCode = "204",
-                            description = "No hay personajes gratuitos disponibles."
+                            description = "No hay personajes disponibles."
                     ),
                     @ApiResponse(
                             responseCode = "500",
-                            description = "Error interno al recuperar personajes gratuitos."
+                            description = "Error interno al recuperar personajes."
                     )
             }
     )
-    public Mono<ServerResponse> getCharacterAllId(ServerRequest request) {
-        logger.info("Solicitud recibida: obtener personajes gratuitos");
-        return characterService.getAllFreeCharacters()
+    public Mono<ServerResponse> getAllCharacters(ServerRequest request) {
+        logger.info("Solicitud recibida: obtener todos los personajes");
+        return characterService.getAllCharacters()
                 .collectList()
                 .flatMap(characters -> {
                     if (characters.isEmpty()) {
-                        return ServerResponse.noContent().build(); // 204 No Content
+                        return ServerResponse.noContent()
+                                .header("X-API-Version", "1.0")  // Ejemplo de header adicional
+                                .build();
                     }
-                    return ServerResponse.ok().bodyValue(characters);
-                });
+                    return ServerResponse.ok()
+                            .contentType(MediaType.APPLICATION_JSON)  // ¡Explícito y obligatorio!
+                            .header("X-API-Version", "1.0")          // Headers estándar
+                            .bodyValue(characters);
+                })
+                .doOnError(e -> logger.error("Error al recuperar personajes", e));
     }
+
 
     //! Devuelve los personajes que el jugador ha desbloqueado
     @Operation(
@@ -96,7 +141,6 @@ public class CharacterHandler {
                     )
             }
     )
-
     public Mono<ServerResponse> getCharacterId(ServerRequest request) {
         return request.principal()
                 .cast(Authentication.class)
