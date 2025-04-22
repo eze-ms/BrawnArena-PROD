@@ -9,7 +9,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -20,6 +22,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
+
 
 @Component
 public class BuildHandler {
@@ -89,10 +92,27 @@ public class BuildHandler {
     }
 
     @Operation(
-            summary = "Validar sesión de montaje",
-            description = "Valida una sesión de montaje previamente iniciada, calcula la puntuación obtenida y registra el resultado.",
+            summary = "Validar montaje de personaje",
+            description = "Valida un intento de construcción para un personaje previamente desbloqueado. Calcula la puntuación y marca el build como válido.",
             operationId = "validateBuild",
-            security = @SecurityRequirement(name = "bearerAuth")
+            security = @SecurityRequirement(name = "bearerAuth"),
+            requestBody = @RequestBody(
+                    description = "Datos necesarios para validar el build: ID del personaje, piezas colocadas y duración.",
+                    required = true,
+                    content = @Content(
+                            schema = @Schema(implementation = Build.class),
+                            examples = @ExampleObject(
+                                    name = "Ejemplo de validación",
+                                    value = """
+                                {
+                                  "characterId": "680743b8485a1c9f6c909003",
+                                  "piecesPlaced": ["piece223", "piece556", "piece889"],
+                                  "duration": 52
+                                }
+                                """
+                            )
+                    )
+            )
     )
     @ApiResponses(
             value = {
