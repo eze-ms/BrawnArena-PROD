@@ -32,4 +32,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ErrorMessage error = new ErrorMessage(HttpStatus.BAD_REQUEST, ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
+
+    @ExceptionHandler(CharacterAccessDeniedException.class)
+    public ResponseEntity<ErrorMessage> handleCharacterAccessDeniedException(CharacterAccessDeniedException ex) {
+        ErrorMessage error = new ErrorMessage(HttpStatus.FORBIDDEN, ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+    }
+
 }

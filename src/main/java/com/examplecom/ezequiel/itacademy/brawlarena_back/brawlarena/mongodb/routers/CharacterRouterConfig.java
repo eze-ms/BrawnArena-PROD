@@ -52,7 +52,14 @@ public class CharacterRouterConfig {
                     method = RequestMethod.GET,
                     beanClass = CharacterHandler.class,
                     beanMethod = "getCharacterDetail"
+            ),
+            @RouterOperation(
+                    path = "/characters/{id}",
+                    method = RequestMethod.PUT,
+                    beanClass = CharacterHandler.class,
+                    beanMethod = "updateCharacter"
             )
+
     })
 
     public RouterFunction<ServerResponse> characterRoutes(CharacterHandler handler) {
@@ -62,6 +69,7 @@ public class CharacterRouterConfig {
                 .GET("/characters/unlocked", handler::getCharacterId)
                 .POST("/characters/unlock", handler::unlockCharacter)
                 .GET("/characters/{id}", handler::getCharacterDetail)
+                .PUT("/characters/{id}", handler::updateCharacter)
                 .build();
     }
 }

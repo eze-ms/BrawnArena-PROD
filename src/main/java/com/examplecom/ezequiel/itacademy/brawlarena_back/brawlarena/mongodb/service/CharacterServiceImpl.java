@@ -3,6 +3,7 @@ package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.ser
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.InsufficientTokensException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.CharacterUpdateRequest;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
@@ -25,24 +26,14 @@ public class CharacterServiceImpl implements CharacterService {
     private static final Logger logger = LoggerFactory.getLogger(CharacterServiceImpl.class);
     private final CharacterRepository characterRepository;
     private final UserRepository userRepository;
+    private final BuildService buildService;
 
-    public CharacterServiceImpl(CharacterRepository characterRepository, UserRepository userRepository) {
+
+    public CharacterServiceImpl(CharacterRepository characterRepository, UserRepository userRepository, BuildService buildService) {
         this.characterRepository = characterRepository;
         this.userRepository = userRepository;
+        this.buildService = buildService;
     }
-
-//    @Override
-//    public Flux<Character> getAllFreeCharacters() {
-//        return characterRepository.findAll()
-//                .doOnSubscribe(sub -> logger.info("Buscando personajes gratuitos..."))
-//                .filter(character -> !character.isUnlocked())
-//                .doOnNext(character -> logger.debug("Personaje gratuito encontrado: {}", character.getName()))
-//                .switchIfEmpty(Flux.defer(() -> {
-//                    logger.warn("No se encontraron personajes gratuitos.");
-//                    return Flux.empty();
-//                }))
-//                .doOnError(error -> logger.error("Error al obtener personajes gratuitos: {}", error.getMessage()));
-//    }
 
     @Override
     public Flux<Character> getAllCharacters() {
@@ -68,7 +59,6 @@ public class CharacterServiceImpl implements CharacterService {
                 }))
                 .doOnError(error -> logger.error("Error al obtener personajes desbloqueados: {}", error.getMessage()));
     }
-
 
     @Override
     public Mono<Boolean> unlockCharacter(String playerId, String characterId) {
@@ -132,5 +122,29 @@ public class CharacterServiceImpl implements CharacterService {
                 .doOnSuccess(character -> logger.info("Detalles del personaje obtenidos: {}", character.getName()))
                 .doOnError(error -> logger.error("Error al obtener detalles del personaje: {}", error.getMessage()));
     }
+
+    @Override
+    public Mono<Character> updateCharacter(String characterId, CharacterUpdateRequest request) {
+        return characterRepository.findById(characterId)
+                .doOnSubscribe(sub -> logger.info("Actualizando personaje con ID {}", characterId))
+                .switchIfEmpty(Mono.error(new CharacterNotFoundException("Personaje no encontrado")))
+                .flatMap(character -> {
+                    character.setName(request.getName());
+                    character.setDescription(request.getDescription());
+                    character.setDifficulty(request.getDifficulty());
+                    character.setImageUrl(request.getImageUrl());
+                    character.setPowers(request.getPowers());
+
+                    if (request.getPieces() != null) {
+                        character.setPieces(request.getPieces());
+                        buildService.clearPiecesCache(characterId);
+                    }
+
+                    return characterRepository.save(character)
+                            .doOnSuccess(updated -> logger.info("Personaje actualizado correctamente: {}", updated.getId()));
+                })
+                .doOnError(error -> logger.error("Error al actualizar personaje: {}", error.getMessage()));
+    }
+
 
 }

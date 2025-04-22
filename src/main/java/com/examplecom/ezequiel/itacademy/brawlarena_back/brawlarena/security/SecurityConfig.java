@@ -49,7 +49,7 @@ public class SecurityConfig {
                                 "/webjars/**",
                                 "/v3/api-docs/**"
                         ).permitAll()
-                        .pathMatchers("/users/**", "/characters/**").authenticated()
+                        .pathMatchers("/users/**", "/characters/**","/builds/**", "/gallery/**", "/powers/**").authenticated()
                 )
 
                 .securityContextRepository(jwtSecurityContextRepository)

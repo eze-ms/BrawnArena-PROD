@@ -6,21 +6,28 @@ import lombok.NoArgsConstructor;
 import nonapi.io.github.classgraph.json.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.Instant;
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(collection = "pieces")
-public class Piece {
+@Document(collection = "builds")
+public class Build {
 
     @Id
     private String id;
-    private String name;
-    private String type; // Ejemplo: cabeza, torso, arma
-    private String color;
-    private String description;
 
-    private boolean fake;
-    private int level; // Nivel de dificultad: 1 (fácil) a 4 (difícil)
-    private boolean special;
-    private boolean comboVisual;
+    private String playerId;
+    private String characterId;
+
+
+    private long duration;
+
+    private List<String> piecesPlaced;
+    private int errors;
+    private int score;
+
+    private boolean valid;
+    private Instant createdAt;
 }

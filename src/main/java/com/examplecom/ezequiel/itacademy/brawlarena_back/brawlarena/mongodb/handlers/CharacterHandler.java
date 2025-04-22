@@ -1,5 +1,6 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.handlers;
 
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.CharacterUpdateRequest;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.CharacterService;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
@@ -34,42 +35,6 @@ public class CharacterHandler {
         this.jwtService = jwtService;
     }
 
-
-    //! Devuelve la lista de personajes gratuitos
-//    @Operation(
-//            summary = "Obtener personajes gratuitos",
-//            description = "Devuelve una lista de personajes que aún no han sido desbloqueados por ningún jugador.",
-//            security = @SecurityRequirement(name = "bearerAuth"),
-//            operationId = "getCharacterAllId"
-//    )
-//    @ApiResponses(
-//            value = {
-//                    @ApiResponse(
-//                            responseCode = "200",
-//                            description = "Personajes gratuitos obtenidos correctamente.",
-//                            content = @Content(schema = @Schema(implementation = Character.class))
-//                    ),
-//                    @ApiResponse(
-//                            responseCode = "204",
-//                            description = "No hay personajes gratuitos disponibles."
-//                    ),
-//                    @ApiResponse(
-//                            responseCode = "500",
-//                            description = "Error interno al recuperar personajes gratuitos."
-//                    )
-//            }
-//    )
-//    public Mono<ServerResponse> getCharacterAllId(ServerRequest request) {
-//        logger.info("Solicitud recibida: obtener personajes gratuitos");
-//        return characterService.getAllFreeCharacters()
-//                .collectList()
-//                .flatMap(characters -> {
-//                    if (characters.isEmpty()) {
-//                        return ServerResponse.noContent().build(); // 204 No Content
-//                    }
-//                    return ServerResponse.ok().bodyValue(characters);
-//                });
-//    }
 
     //! Devuelve la lista completa de personajes, sin filtrar por desbloqueo o usuario
     @Operation(
@@ -257,4 +222,31 @@ public class CharacterHandler {
         return characterService.getCharacterDetail(characterId)
                 .flatMap(character -> ServerResponse.ok().bodyValue(character));
     }
+
+    //! Devuelve la lista de los personajes actualizados
+    @Operation(
+            summary = "Actualizar personaje",
+            description = "Actualiza los datos de un personaje existente mediante su ID.",
+            operationId = "updateCharacter",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Personaje actualizado correctamente"),
+            @ApiResponse(responseCode = "404", description = "Personaje no encontrado"),
+            @ApiResponse(responseCode = "500", description = "Error interno al actualizar personaje")
+    })
+    public Mono<ServerResponse> updateCharacter(ServerRequest request) {
+        String characterId = request.pathVariable("id");
+
+        return request.bodyToMono(CharacterUpdateRequest.class)
+                .flatMap(updateRequest ->
+                        characterService.updateCharacter(characterId, updateRequest)
+                                .flatMap(updated ->
+                                        ServerResponse.ok().bodyValue(updated)
+                                )
+                )
+                .doOnSubscribe(sub -> logger.info("Solicitud de actualización recibida para personaje {}", characterId))
+                .doOnError(error -> logger.error("Error al actualizar personaje {}: {}", characterId, error.getMessage()));
+    }
+
 }
