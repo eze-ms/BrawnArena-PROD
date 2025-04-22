@@ -72,12 +72,20 @@ class BuildServiceImplTest {
 
     @Test
     void startBuild_conPersonajeDesbloqueado_creaBuildNoValidado() {
-        // Configuración
+        // Usuario con personaje desbloqueado
+        User mockUser = User.builder()
+                .nickname("player1")
+                .characterIds("[\"char1\"]")
+                .build();
+
+        when(userRepository.findByNickname("player1")).thenReturn(Mono.just(mockUser));
+
+        // Personaje correspondiente
         Character character = createTestCharacter("char1");
         when(characterRepository.findById("char1")).thenReturn(Mono.just(character));
+
+        when(buildRepository.findAll()).thenReturn(Flux.empty());
         when(buildRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        when(buildRepository.findAll())
-                .thenReturn(Flux.empty());
 
         // Ejecución y validación
         StepVerifier.create(buildService.startBuild("player1", "char1"))
@@ -94,9 +102,14 @@ class BuildServiceImplTest {
         Character character = createTestCharacter("char1");
         Build existingBuild = createTestBuild("player1", "char1", false);
 
+        User user = User.builder()
+                .nickname("player1")
+                .characterIds("[\"char1\"]")
+                .build();
+
+        when(userRepository.findByNickname("player1")).thenReturn(Mono.just(user));
         when(characterRepository.findById("char1")).thenReturn(Mono.just(character));
-        when(buildRepository.findAll()) // Mock para simular build existente
-                .thenReturn(Flux.just(existingBuild));
+        when(buildRepository.findAll()).thenReturn(Flux.just(existingBuild));
 
         StepVerifier.create(buildService.startBuild("player1", "char1"))
                 .expectErrorMatches(ex ->
@@ -150,11 +163,14 @@ class BuildServiceImplTest {
 
         when(userRepository.findByNickname("player123"))
                 .thenReturn(Mono.just(mockUser));
-        when(characterRepository.findById("char123")).thenReturn(Mono.just(mockCharacter));
-        when(buildRepository.findAll()).thenReturn(Flux.just(existingBuild));
+        when(characterRepository.findById("char123"))
+                .thenReturn(Mono.just(mockCharacter));
+        when(buildRepository.findAll())
+                .thenReturn(Flux.just(existingBuild));
         when(buildRepository.countByPlayerIdAndCharacterIdAndValidTrue("player123", "char123"))
                 .thenReturn(Mono.just(0L));
-        when(buildRepository.save(any(Build.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(buildRepository.save(any(Build.class)))
+                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
         StepVerifier.create(buildService.validateBuild("player123", mockBuild))
                 .assertNext(result -> {
@@ -167,6 +183,7 @@ class BuildServiceImplTest {
     @Test
     void validateBuild_BuildNotFound_ReturnsError() {
         Build mockBuild = new Build();
+        mockBuild.setId("buildX");
         mockBuild.setPlayerId("player123");
         mockBuild.setCharacterId("char123");
         mockBuild.setPiecesPlaced(List.of("pieza1"));
@@ -182,7 +199,6 @@ class BuildServiceImplTest {
         mockUser.setNickname("player123");
         mockUser.setCharacterIds("[\"char123\"]");
 
-        // Stubs
         when(userRepository.findByNickname("player123")).thenReturn(Mono.just(mockUser));
         when(characterRepository.findById("char123")).thenReturn(Mono.just(mockCharacter));
         when(buildRepository.findAll()).thenReturn(Flux.empty());
@@ -196,18 +212,18 @@ class BuildServiceImplTest {
 
     @Test
     void validateBuild_InternalServiceError_PropagatesException() {
-        // Configura Build de entrada
         Build mockBuild = new Build();
         mockBuild.setPlayerId("player123");
         mockBuild.setCharacterId("char123");
         mockBuild.setPiecesPlaced(List.of("pieza1"));
         mockBuild.setDuration(100);
 
-        // Simula fallo en characterRepository
+        when(userRepository.findByNickname("player123"))
+                .thenReturn(Mono.just(new User()));
+
         when(characterRepository.findById("char123"))
                 .thenReturn(Mono.error(new RuntimeException("Error inesperado en la base de datos")));
 
-        // Ejecución y validación
         StepVerifier.create(buildService.validateBuild("player123", mockBuild))
                 .expectErrorMatches(error ->
                         error instanceof RuntimeException &&
@@ -223,10 +239,16 @@ class BuildServiceImplTest {
         mockBuild.setPiecesPlaced(List.of("pieza1"));
         mockBuild.setDuration(100);
 
-        // Simula que el personaje no existe
-        when(characterRepository.findById("char123")).thenReturn(Mono.empty());
+        User mockUser = new User();
+        mockUser.setNickname("player123");
+        mockUser.setCharacterIds("[\"char123\"]");
 
-        // Ejecución y validación
+        when(userRepository.findByNickname("player123"))
+                .thenReturn(Mono.just(mockUser));
+
+        when(characterRepository.findById("char123"))
+                .thenReturn(Mono.empty());
+
         StepVerifier.create(buildService.validateBuild("player123", mockBuild))
                 .expectErrorMatches(error ->
                         error instanceof CharacterNotFoundException &&
@@ -236,26 +258,25 @@ class BuildServiceImplTest {
 
     @Test
     void validateBuild_PersonajeNoDesbloqueado_LanzaAccessDeniedException() {
-        // Configura Build
+
         Build mockBuild = new Build();
         mockBuild.setPlayerId("player123");
         mockBuild.setCharacterId("char123");
         mockBuild.setPiecesPlaced(List.of("pieza1"));
         mockBuild.setDuration(100);
 
-        // Configura personaje
+
         Piece piece = new Piece();
         piece.setId("pieza1");
 
         Character mockCharacter = createTestCharacter("char123");
         mockCharacter.setPieces(List.of(piece));
 
-        // Usuario SIN ese personaje desbloqueado
+
         User mockUser = new User();
         mockUser.setNickname("player123");
         mockUser.setCharacterIds("[\"otroPersonaje\"]");
 
-        // Stubs
         when(userRepository.findByNickname("player123")).thenReturn(Mono.just(mockUser));
         when(characterRepository.findById("char123")).thenReturn(Mono.just(mockCharacter));
 
@@ -296,7 +317,6 @@ class BuildServiceImplTest {
                 .verify();
     }
 
-
     @Test
     void getBuildHistory_HistorialConBuilds_ReturnsFluxOrdenado() {
         String playerId = "player123";
@@ -333,14 +353,12 @@ class BuildServiceImplTest {
 
     @Test
     void getBuildHistory_ErrorEnBaseDeDatos_PropagaError() {
-        // 1. Configura playerId
+
         String playerId = "player123";
 
-        // 2. Simula error en el repositorio
         when(buildRepository.findByPlayerIdAndValidTrueOrderByCreatedAtDesc(playerId))
                 .thenReturn(Flux.error(new RuntimeException("Error en la base de datos")));
 
-        // 3. Ejecución y validación
         StepVerifier.create(buildService.getBuildHistory(playerId))
                 .expectErrorMatches(error ->
                         error instanceof RuntimeException &&

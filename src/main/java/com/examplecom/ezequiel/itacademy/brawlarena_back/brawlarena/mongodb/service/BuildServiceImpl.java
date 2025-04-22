@@ -61,6 +61,7 @@ public class BuildServiceImpl implements BuildService {
                     List<String> idsDesbloqueados = Optional.ofNullable(user.getCharacterIds())
                             .map(ids -> Arrays.stream(ids.replace("[", "").replace("]", "").split(","))
                                     .map(String::trim)
+                                    .map(id -> id.replace("\"", ""))
                                     .filter(s -> !s.isBlank())
                                     .toList())
                             .orElse(List.of());
@@ -113,6 +114,7 @@ public class BuildServiceImpl implements BuildService {
             List<String> idsDesbloqueados = Optional.ofNullable(user.getCharacterIds())
                     .map(ids -> Arrays.stream(ids.replace("[", "").replace("]", "").split(","))
                             .map(String::trim)
+                            .map(id -> id.replace("\"", ""))
                             .filter(s -> !s.isBlank())
                             .toList())
                     .orElse(List.of());

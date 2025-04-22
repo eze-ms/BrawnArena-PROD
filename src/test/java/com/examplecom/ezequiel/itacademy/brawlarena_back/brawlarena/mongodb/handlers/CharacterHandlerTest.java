@@ -40,25 +40,22 @@ class CharacterHandlerTest {
     private CharacterService characterService;
 
     @Mock
-    private JwtService jwtService;
-
-    @Mock
     private ServerRequest request;
 
     @InjectMocks
     private CharacterHandler characterHandler;
 
     //* Helper para crear Characters de prueba
-    private Character createTestCharacter(String id, String playerId, boolean unlocked) {
+    private Character createTestCharacter(String id) {
         return new Character(
-                id,                        // @Id
-                "TestName",                // name
-                "TestDescription",         // description
-                "Medium",                  // difficulty
-                new ArrayList<>(),        // pieces
-                new ArrayList<>(),        // powers
-                "test.png",               // imageUrl
-                0                         // cost (valor por defecto para tests)
+                id,
+                "TestName",
+                "TestDescription",
+                "Medium",
+                new ArrayList<>(),
+                new ArrayList<>(),
+                "test.png",
+                0
         );
     }
 
@@ -78,12 +75,10 @@ class CharacterHandlerTest {
     // Respuesta 200 OK con personajes
     @Test
     void getAllCharacters_ReturnsOkWithValidHeaders() {
-        // Configuración
-        Character testChar = createTestCharacter("1", null, false);
+        Character testChar = createTestCharacter("1");
         when(characterService.getAllCharacters())
                 .thenReturn(Flux.just(testChar));
 
-        // Ejecución
         Mono<ServerResponse> response = characterHandler.getAllCharacters(
                 ServerRequest.create(
                         MockServerWebExchange.from(MockServerHttpRequest.get("/")),
@@ -91,13 +86,11 @@ class CharacterHandlerTest {
                 )
         );
 
-        // Validaciones
         StepVerifier.create(response)
                 .assertNext(res -> {
-                    // 1. Verificar status code
+
                     assertEquals(HttpStatus.OK, res.statusCode());
 
-                    // 2. Verificar Content-Type EXPLÍCITO
                     HttpHeaders headers = res.headers();
                     assertNotNull(headers.getContentType(), "Content-Type no debe ser nulo");
                     assertEquals(
@@ -106,7 +99,6 @@ class CharacterHandlerTest {
                             "Debe ser application/json"
                     );
 
-                    // 3. Verificar headers personalizados
                     assertEquals("1.0", headers.getFirst("X-API-Version"));
                 })
                 .verifyComplete();
@@ -115,11 +107,11 @@ class CharacterHandlerTest {
     // Respuesta 204 No Content
     @Test
     void getAllCharacters_ReturnsNoContentWhenEmpty() {
-        // Configuración
+
         when(characterService.getAllCharacters())
                 .thenReturn(Flux.empty());
 
-        // Ejecución
+
         Mono<ServerResponse> response = characterHandler.getAllCharacters(
                 ServerRequest.create(
                         MockServerWebExchange.from(MockServerHttpRequest.get("/")),
@@ -127,11 +119,11 @@ class CharacterHandlerTest {
                 )
         );
 
-        // Validaciones
+
         StepVerifier.create(response)
                 .assertNext(res -> {
                     assertEquals(HttpStatus.NO_CONTENT, res.statusCode());
-                    assertNull(res.headers().getContentType()); // 204 no debe tener body
+                    assertNull(res.headers().getContentType());
                     assertEquals("1.0", res.headers().getFirst("X-API-Version"));
                 })
                 .verifyComplete();
@@ -140,11 +132,11 @@ class CharacterHandlerTest {
     // Manejo de errores
     @Test
     void getAllCharacters_PropagatesServiceError() {
-        // Configuración
+
         when(characterService.getAllCharacters())
                 .thenReturn(Flux.error(new RuntimeException("Error en base de datos")));
 
-        // Ejecución y validación
+
         StepVerifier.create(
                         characterHandler.getAllCharacters(
                                 ServerRequest.create(
@@ -164,15 +156,15 @@ class CharacterHandlerTest {
     // validación de headers (sin Accept)
     @Test
     void getAllCharacters_ForceJsonResponseEvenWithoutAcceptHeader() {
-        // Configuración
-        Character testChar = createTestCharacter("1", null, false);
+
+        Character testChar = createTestCharacter("1");
         when(characterService.getAllCharacters())
                 .thenReturn(Flux.just(testChar));
 
-        // Request SIN header Accept
+
         MockServerHttpRequest request = MockServerHttpRequest.get("/").build();
 
-        // Ejecución
+
         Mono<ServerResponse> response = characterHandler.getAllCharacters(
                 ServerRequest.create(
                         MockServerWebExchange.from(request),
@@ -180,7 +172,7 @@ class CharacterHandlerTest {
                 )
         );
 
-        // Validaciones
+
         StepVerifier.create(response)
                 .assertNext(res -> {
                     assertEquals(HttpStatus.OK, res.statusCode());
@@ -193,21 +185,20 @@ class CharacterHandlerTest {
     // test para personajes desbloqueados
     @Test
     void getCharacterId_ReturnsUnlockedCharacters() {
-        // Configura
+
         Authentication auth = new UsernamePasswordAuthenticationToken("player1", "");
         when(request.principal())
-                .thenAnswer(inv -> Mono.just(auth)); // ← Solución clave
+                .thenAnswer(inv -> Mono.just(auth));
 
         when(characterService.getUnlockedCharacters("player1"))
-                .thenReturn(Flux.just(createTestCharacter("1", "player1", true)));
+                .thenReturn(Flux.just(createTestCharacter("1")));
 
-        // Ejecuta y verifica
+
         StepVerifier.create(characterHandler.getCharacterId(request))
                 .expectNextMatches(r -> r.statusCode() == HttpStatus.OK)
                 .verifyComplete();
     }
 
-    // test para personajes desbloqueados
     @Test
     void getCharacterId_ReturnsNoContentWhenEmpty() {
         Authentication auth = new UsernamePasswordAuthenticationToken("player1", "");
@@ -227,10 +218,9 @@ class CharacterHandlerTest {
     //! unlockCharacter
     @Test
     void unlockCharacter_MissingCharacterId_ReturnsBadRequest() {
-        // Arrange
+
         mockQueryParams("characterId", null);
 
-        // Act & Assert
         StepVerifier.create(characterHandler.unlockCharacter(request))
                 .expectNextMatches(response ->
                         response.statusCode() == HttpStatus.BAD_REQUEST)
@@ -239,7 +229,7 @@ class CharacterHandlerTest {
 
     @Test
     void unlockCharacter_SuccessfullyUnlocked_ReturnsOk() {
-        // Arrange
+
         mockQueryParams("characterId", "char1");
         Authentication auth = new UsernamePasswordAuthenticationToken("player1", "");
 
@@ -248,7 +238,7 @@ class CharacterHandlerTest {
         when(characterService.unlockCharacter("player1", "char1"))
                 .thenReturn(Mono.just(true));
 
-        // Act & Assert
+
         StepVerifier.create(characterHandler.unlockCharacter(request))
                 .expectNextMatches(response -> {
                     if (response.statusCode() != HttpStatus.OK) return false;
@@ -260,7 +250,7 @@ class CharacterHandlerTest {
 
     @Test
     void unlockCharacter_AlreadyUnlocked_ReturnsOk() {
-        // Arrange
+
         mockQueryParams("characterId", "char1");
         Authentication auth = new UsernamePasswordAuthenticationToken("player1", "");
 
@@ -269,7 +259,6 @@ class CharacterHandlerTest {
         when(characterService.unlockCharacter("player1", "char1"))
                 .thenReturn(Mono.just(false));
 
-        // Act & Assert
         StepVerifier.create(characterHandler.unlockCharacter(request))
                 .expectNextMatches(response -> {
                     if (response.statusCode() != HttpStatus.OK) return false;
@@ -283,15 +272,13 @@ class CharacterHandlerTest {
     //! getCharacterDetail
     @Test
     void getCharacterDetail_ReturnsCharacterDetails() {
-        // 1. Mock exacto del método usado en el handler
-        when(request.pathVariable("id")).thenReturn("char1");  // ← Cambio clave
+        when(request.pathVariable("id"))
+                .thenReturn("char1");
 
-        // 2. Mock del service
-        Character testChar = createTestCharacter("char1", "player1", true);
+        Character testChar = createTestCharacter("char1");
         when(characterService.getCharacterDetail("char1"))
                 .thenReturn(Mono.just(testChar));
 
-        // 3. Act/Assert
         StepVerifier.create(characterHandler.getCharacterDetail(request))
                 .expectNextMatches(response ->
                         response.statusCode() == HttpStatus.OK)
@@ -300,12 +287,10 @@ class CharacterHandlerTest {
 
     @Test
     void getCharacterDetail_NotFound_ThrowsException() {
-        // Arrange
         when(request.pathVariable("id")).thenReturn("char1");
         when(characterService.getCharacterDetail("char1"))
                 .thenReturn(Mono.error(new CharacterNotFoundException("char1")));
 
-        // Act & Assert
         StepVerifier.create(characterHandler.getCharacterDetail(request))
                 .expectError(CharacterNotFoundException.class)
                 .verify();
@@ -313,12 +298,12 @@ class CharacterHandlerTest {
 
     @Test
     void getCharacterDetail_ServiceError_PropagatesException() {
-        // Arrange
-        when(request.pathVariable("id")).thenReturn("char1");
+        when(request.pathVariable("id"))
+                .thenReturn("char1");
+
         when(characterService.getCharacterDetail("char1"))
                 .thenReturn(Mono.error(new RuntimeException("Unexpected error")));
 
-        // Act & Assert
         StepVerifier.create(characterHandler.getCharacterDetail(request))
                 .expectError(RuntimeException.class)
                 .verify();
