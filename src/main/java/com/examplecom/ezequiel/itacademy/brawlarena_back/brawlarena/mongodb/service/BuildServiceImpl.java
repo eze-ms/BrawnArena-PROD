@@ -3,6 +3,7 @@ package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.ser
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.logic.ScoreCalculator;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterAccessDeniedException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterNotFoundException;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.NoPendingBuildException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Build;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Piece;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.BuildRepository;
@@ -79,10 +80,6 @@ public class BuildServiceImpl implements BuildService {
         List<String> piezasColocadasIds = buildData.getPiecesPlaced();
         long duration = buildData.getDuration();
 
-        if (piezasColocadasIds == null || piezasColocadasIds.isEmpty()) {
-            return Mono.error(new IllegalArgumentException("Lista de piezas inválida"));
-        }
-
         return characterRepository.findById(characterId)
                 .doOnSubscribe(sub -> logger.info("Validando build para jugador {} y personaje {}", playerId, characterId))
                 .switchIfEmpty(Mono.error(new CharacterNotFoundException("Personaje no encontrado")))
@@ -105,7 +102,7 @@ public class BuildServiceImpl implements BuildService {
                                     && build.getCharacterId().equals(characterId)
                                     && !build.isValid())
                             .next()
-                            .switchIfEmpty(Mono.error(new IllegalStateException("No hay un build pendiente para este personaje")))
+                            .switchIfEmpty(Mono.error(new NoPendingBuildException("No hay un build pendiente para este personaje")))
                             .flatMap(buildExistente -> {
 
                                 List<Piece> piezasColocadas = piezasCorrectas.stream()

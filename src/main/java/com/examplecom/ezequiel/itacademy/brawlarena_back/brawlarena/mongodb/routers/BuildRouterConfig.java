@@ -16,6 +16,7 @@ public class BuildRouterConfig {
         return route()
                 .POST("/builds/start", handler::startBuild)
                 .POST("/builds/validate", handler::validateBuild)
+                .GET("/builds/history", handler::getBuildHistory)
                 .build();
     }
 }

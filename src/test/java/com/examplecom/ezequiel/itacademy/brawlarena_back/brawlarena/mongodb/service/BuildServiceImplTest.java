@@ -1,12 +1,13 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service;
 
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.logic.ScoreCalculator;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.config.ScoreConfig;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.validator.BuildValidator;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterAccessDeniedException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterNotFoundException;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.NoPendingBuildException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Build;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Piece;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.handlers.BuildHandler;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.BuildRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
 import org.junit.jupiter.api.Test;
@@ -14,17 +15,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.reactive.function.server.ServerRequest;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import static org.mockito.Mockito.any;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.mongodb.internal.connection.tlschannel.util.Util.assertTrue;
-import static org.mockito.ArgumentMatchers.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
+
 
 @ExtendWith(MockitoExtension.class)
 class BuildServiceImplTest {
@@ -36,10 +40,14 @@ class BuildServiceImplTest {
     private CharacterRepository characterRepository;
 
     @Mock
-    private ScoreConfig scoreConfig;
+    private ServerRequest request;
 
     @InjectMocks
     private BuildServiceImpl buildService;
+
+    @InjectMocks
+    private BuildHandler buildHandler;
+
 
     // Helpers
     private Character createTestCharacter(String id, String playerId, boolean unlocked) {
@@ -95,15 +103,16 @@ class BuildServiceImplTest {
                 .verify();
     }
 
-
     @Test
-    void validateBuild_conPiezasNull_lanzaExcepcion() {
-        Build buildInvalido = new Build();
-        buildInvalido.setPiecesPlaced(null); // o List.of()
+    void validateBuildData_conPiezasNull_lanzaExcepcion() {
+        Build build = new Build();
+        build.setCharacterId("char1");
+        build.setPiecesPlaced(null);
+        build.setDuration(60L);
 
-        StepVerifier.create(buildService.validateBuild("player1", buildInvalido))
-                .expectError(IllegalArgumentException.class)
-                .verify();
+        assertThrows(IllegalArgumentException.class, () -> {
+            BuildValidator.validateBuildData(build);
+        });
     }
 
     @Test
@@ -167,13 +176,11 @@ class BuildServiceImplTest {
 
         // Stubs
         when(characterRepository.findById("char123")).thenReturn(Mono.just(mockCharacter));
-        when(buildRepository.findAll()).thenReturn(Flux.empty()); // No hay builds
-        // countByPlayerId... no es necesario porque no se llega a ejecutarlo
+        when(buildRepository.findAll()).thenReturn(Flux.empty());
 
-        // Ejecución y validación
         StepVerifier.create(buildService.validateBuild("player123", mockBuild))
                 .expectErrorMatches(error ->
-                        error instanceof IllegalStateException &&
+                        error instanceof NoPendingBuildException &&
                                 error.getMessage().contains("build pendiente"))
                 .verify();
     }
@@ -248,7 +255,7 @@ class BuildServiceImplTest {
     }
 
     @Test
-    void validateBuild_NoHayBuildPendiente_LanzaIllegalStateException() {
+    void validateBuild_NoHayBuildPendiente_LanzaNoPendingBuildException() {
         // Configura Build
         Build mockBuild = new Build();
         mockBuild.setPlayerId("player123");
@@ -271,9 +278,74 @@ class BuildServiceImplTest {
         // Ejecución y validación
         StepVerifier.create(buildService.validateBuild("player123", mockBuild))
                 .expectErrorMatches(error ->
-                        error instanceof IllegalStateException &&
+                        error instanceof NoPendingBuildException &&
                                 error.getMessage().contains("build pendiente"))
                 .verify();
     }
 
+    @Test
+    void getBuildHistory_HistorialConBuilds_ReturnsFluxOrdenado() {
+        String playerId = "player123";
+
+        Build build1 = new Build();
+        build1.setId("b1");
+        build1.setValid(true);
+        build1.setCreatedAt(Instant.parse("2024-01-01T10:00:00Z"));
+
+        Build build2 = new Build();
+        build2.setId("b2");
+        build2.setValid(true);
+        build2.setCreatedAt(Instant.parse("2024-02-01T10:00:00Z"));
+
+        when(buildRepository.findByPlayerIdAndValidTrueOrderByCreatedAtDesc(playerId))
+                .thenReturn(Flux.just(build2, build1));
+
+        StepVerifier.create(buildService.getBuildHistory(playerId))
+                .expectNext(build2)
+                .expectNext(build1)
+                .verifyComplete();
+    }
+
+    @Test
+    void getBuildHistory_HistorialVacio_ReturnsEmptyFlux() {
+        String playerId = "player123";
+
+        when(buildRepository.findByPlayerIdAndValidTrueOrderByCreatedAtDesc(playerId))
+                .thenReturn(Flux.empty());
+
+        StepVerifier.create(buildService.getBuildHistory(playerId))
+                .verifyComplete();
+    }
+
+    @Test
+    void getBuildHistory_ErrorEnBaseDeDatos_PropagaError() {
+        // 1. Configura playerId
+        String playerId = "player123";
+
+        // 2. Simula error en el repositorio
+        when(buildRepository.findByPlayerIdAndValidTrueOrderByCreatedAtDesc(playerId))
+                .thenReturn(Flux.error(new RuntimeException("Error en la base de datos")));
+
+        // 3. Ejecución y validación
+        StepVerifier.create(buildService.getBuildHistory(playerId))
+                .expectErrorMatches(error ->
+                        error instanceof RuntimeException &&
+                                error.getMessage().contains("Error en la base de datos"))
+                .verify();
+    }
+
+    @Test
+    void getBuildHistory_FiltraBuildsInvalidos_RetornaSoloValidos() {
+        Build valido = createTestBuild("player1", "char1", true);
+        Build invalido = createTestBuild("player1", "char1", false);
+
+        when(buildRepository.findByPlayerIdAndValidTrueOrderByCreatedAtDesc("player1"))
+                .thenReturn(Flux.just(valido));
+
+        StepVerifier.create(buildService.getBuildHistory("player1"))
+                .expectNext(valido)
+                .verifyComplete();
+    }
+
 }
+

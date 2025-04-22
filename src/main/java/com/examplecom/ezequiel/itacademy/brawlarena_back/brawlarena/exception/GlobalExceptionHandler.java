@@ -39,4 +39,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
     }
 
+    @ExceptionHandler(NoPendingBuildException.class)
+    public ResponseEntity<ErrorMessage> handleNoPendingBuildException(NoPendingBuildException ex) {
+        ErrorMessage error = new ErrorMessage(HttpStatus.NOT_FOUND, ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+
 }

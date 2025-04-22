@@ -1,5 +1,6 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.handlers;
 
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.validator.BuildValidator;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Build;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.BuildService;
@@ -48,9 +49,11 @@ public class BuildHandler {
                 .flatMap(playerId ->
                         request.bodyToMono(Build.class)
                                 .flatMap(buildData -> {
-                                    if (buildData.getCharacterId() == null || buildData.getPiecesPlaced() == null || buildData.getDuration() <= 0) {
-                                        logger.warn("Datos inválidos en buildData recibido por jugador {}", playerId);
-                                        return ServerResponse.badRequest().bodyValue("Faltan datos obligatorios en el build.");
+                                    try {
+                                        BuildValidator.validateBuildData(buildData);
+                                    } catch (IllegalArgumentException ex) {
+                                        logger.warn("Validación fallida para build del jugador {}: {}", playerId, ex.getMessage());
+                                        return ServerResponse.badRequest().bodyValue(ex.getMessage());
                                     }
 
                                     logger.info("Solicitud recibida para validar build de jugador {}", playerId);
@@ -60,4 +63,26 @@ public class BuildHandler {
                 )
                 .doOnError(error -> logger.error("Error al validar build: {}", error.getMessage()));
     }
+
+
+    public Mono<ServerResponse> getBuildHistory(ServerRequest request) {
+        return request.principal()
+                .switchIfEmpty(Mono.error(new UserNotFoundException("Autenticación requerida")))
+                .cast(Authentication.class)
+                .map(Authentication::getName)
+                .flatMap(playerId -> {
+                    logger.info("Solicitud recibida para obtener historial de builds del jugador {}", playerId);
+                    return buildService.getBuildHistory(playerId)
+                            .collectList()
+                            .flatMap(builds -> {
+                                if (builds.isEmpty()) {
+                                    logger.info("No se encontraron builds validados para el jugador {}", playerId);
+                                    return ServerResponse.noContent().build();
+                                }
+                                return ServerResponse.ok().bodyValue(builds);
+                            });
+                })
+                .doOnError(error -> logger.error("Error al recuperar historial de builds: {}", error.getMessage()));
+    }
+
 }
