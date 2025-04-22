@@ -15,12 +15,12 @@ public class Piece {
     @Id
     private String id;
     private String name;
-    private String type; // Ejemplo: cabeza, torso, arma
+    private String type;
     private String color;
     private String description;
-
+    private String imageUrl;
     private boolean fake;
-    private int level; // Nivel de dificultad: 1 (fácil) a 4 (difícil)
+    private int level;
     private boolean special;
     private boolean comboVisual;
 }

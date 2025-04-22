@@ -8,8 +8,11 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.enti
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.repository.UserRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import reactor.core.publisher.Flux;
@@ -27,6 +30,9 @@ public class CharacterServiceImpl implements CharacterService {
     private final CharacterRepository characterRepository;
     private final UserRepository userRepository;
     private final BuildService buildService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
 
     public CharacterServiceImpl(CharacterRepository characterRepository, UserRepository userRepository, BuildService buildService) {
@@ -92,11 +98,13 @@ public class CharacterServiceImpl implements CharacterService {
                     if (!idsList.contains(character.getId())) {
                         idsList.add(character.getId());
 
-                        String formatted = idsList.stream()
-                                .map(id -> "\"" + id.trim() + "\"")
-                                .collect(Collectors.joining(", ", "[", "]"));
-
-                        user.setCharacterIds(formatted);
+                        try {
+                            String formatted = objectMapper.writeValueAsString(idsList);
+                            user.setCharacterIds(formatted);
+                        } catch (JsonProcessingException e) {
+                            logger.error("Error al serializar characterIds: {}", e.getMessage());
+                            return Mono.error(new RuntimeException("Error al guardar los personajes desbloqueados"));
+                        }
                     }
 
                     character.setUnlocked(true);
@@ -145,6 +153,5 @@ public class CharacterServiceImpl implements CharacterService {
                 })
                 .doOnError(error -> logger.error("Error al actualizar personaje: {}", error.getMessage()));
     }
-
 
 }
