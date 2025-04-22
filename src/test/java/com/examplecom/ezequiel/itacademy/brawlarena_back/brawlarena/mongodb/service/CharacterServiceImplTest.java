@@ -36,6 +36,9 @@ class CharacterServiceImplTest {
     private BuildRepository buildRepository;
 
     @Mock
+    private BuildService buildService;
+
+    @Mock
     private ObjectMapper objectMapper;
 
     @InjectMocks
@@ -103,7 +106,6 @@ class CharacterServiceImplTest {
                 .verify();
     }
 
-
     //! Test para getUnlockedCharacters
     @Test
     void getUnlockedCharacters_ReturnsFilteredCharacters() {
@@ -125,7 +127,6 @@ class CharacterServiceImplTest {
                 .expectComplete()
                 .verify();
     }
-
 
     @Test
     void getUnlockedCharacters_ReturnsEmptyWhenNoMatches() {
@@ -163,33 +164,40 @@ class CharacterServiceImplTest {
     }
 
     //! Test para unlockCharacter
-    // Desbloqueo exitoso
     @Test
     void unlockCharacter_SuccessfullyUnlocks_ReturnsTrue() {
-        // Configuración de mocks
+        // Mocks necesarios
+        BuildService buildService = mock(BuildService.class);
+
         Character lockedChar = createTestCharacter("char1");
         Character savedChar = createTestCharacter("char1");
+
         User testUser = User.builder()
                 .nickname("player1")
                 .tokens(100)
-                .characterIds("[]")
+                .characterIds("[]") // Lista vacía
                 .build();
 
-        // Mocks
+        // Stubs
         when(characterRepository.findById("char1")).thenReturn(Mono.just(lockedChar));
         when(userRepository.findByNickname("player1")).thenReturn(Mono.just(testUser));
         when(userRepository.save(any(User.class))).thenReturn(Mono.just(testUser));
 
-        // Instanciamos el servicio con las dependencias necesarias
-        CharacterServiceImpl characterService = new CharacterServiceImpl(characterRepository, userRepository, buildRepository, objectMapper);
+        // Instancia del servicio con todas las dependencias
+        CharacterServiceImpl characterService = new CharacterServiceImpl(
+                characterRepository,
+                userRepository,
+                buildRepository,
+                buildService,
+                objectMapper
+        );
 
-        // Ejecuta y verifica
+        // Verificación
         StepVerifier.create(characterService.unlockCharacter("player1", "char1"))
                 .expectNext(true)
                 .verifyComplete();
     }
 
-    // Personaje ya desbloqueado
     @Test
     void unlockCharacter_AlreadyUnlocked_ReturnsFalse() {
         // Configura mocks
@@ -211,8 +219,6 @@ class CharacterServiceImplTest {
                 .verifyComplete();
     }
 
-
-    // Personaje no encontrado
     @Test
     void unlockCharacter_NotFound_ThrowsException() {
         when(characterRepository.findById("char1"))
@@ -226,7 +232,6 @@ class CharacterServiceImplTest {
                 .verify();
     }
 
-    // Error en repositorio
     @Test
     void unlockCharacter_RepositoryError_PropagatesError() {
         // Mock de UserRepository para evitar NPE
@@ -280,5 +285,4 @@ class CharacterServiceImplTest {
                 .expectError(RuntimeException.class)
                 .verify();
     }
-
 }

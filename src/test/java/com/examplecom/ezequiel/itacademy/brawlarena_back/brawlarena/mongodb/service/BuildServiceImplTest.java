@@ -45,7 +45,6 @@ class BuildServiceImplTest {
     @InjectMocks
     private BuildServiceImpl buildService;
 
-
     // Helper
     private Character createTestCharacter(String id) {
         Character character = new Character();

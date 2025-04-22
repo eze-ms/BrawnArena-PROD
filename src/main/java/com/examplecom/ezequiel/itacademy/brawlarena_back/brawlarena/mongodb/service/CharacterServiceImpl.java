@@ -28,6 +28,7 @@ public class CharacterServiceImpl implements CharacterService {
     private final CharacterRepository characterRepository;
     private final UserRepository userRepository;
     private final BuildRepository buildRepository;
+    private final BuildService buildService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -36,13 +37,15 @@ public class CharacterServiceImpl implements CharacterService {
     public CharacterServiceImpl(CharacterRepository characterRepository,
                                 UserRepository userRepository,
                                 BuildRepository buildRepository,
+                                BuildService buildService,
                                 ObjectMapper objectMapper) {
-
         this.characterRepository = characterRepository;
         this.userRepository = userRepository;
         this.buildRepository = buildRepository;
+        this.buildService = buildService;
         this.objectMapper = objectMapper;
     }
+
 
 
     @Override
@@ -155,6 +158,7 @@ public class CharacterServiceImpl implements CharacterService {
 
                     if (request.getPieces() != null) {
                         character.setPieces(request.getPieces());
+                        buildService.clearPiecesCache(characterId);
                     }
 
                     return characterRepository.save(character)
