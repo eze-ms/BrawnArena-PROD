@@ -3,7 +3,6 @@ package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.han
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.CharacterUpdateRequest;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.CharacterService;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.security.JwtService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,7 +14,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
@@ -77,7 +75,6 @@ public class CharacterHandler {
                 })
                 .doOnError(e -> logger.error("Error al recuperar personajes", e));
     }
-
 
     //! Devuelve los personajes que el jugador ha desbloqueado
     @Operation(
@@ -183,7 +180,6 @@ public class CharacterHandler {
                 });
     }
 
-
     //! Devuelve la información detallada de un personaje específico, como poderes y dificultad
     @Operation(
             summary = "Obtener detalles de un personaje",
@@ -230,10 +226,20 @@ public class CharacterHandler {
             operationId = "updateCharacter",
             security = @SecurityRequirement(name = "bearerAuth")
     )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Personaje actualizado correctamente"),
-            @ApiResponse(responseCode = "404", description = "Personaje no encontrado"),
-            @ApiResponse(responseCode = "500", description = "Error interno al actualizar personaje")
+    @ApiResponses(
+            value = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Personaje actualizado correctamente"
+                    ),
+                    @ApiResponse(
+                            responseCode = "404",
+                            description = "Personaje no encontrado"
+                    ),
+                    @ApiResponse(
+                            responseCode = "500",
+                            description = "Error interno al actualizar personaje"
+                    )
     })
     public Mono<ServerResponse> updateCharacter(ServerRequest request) {
         String characterId = request.pathVariable("id");

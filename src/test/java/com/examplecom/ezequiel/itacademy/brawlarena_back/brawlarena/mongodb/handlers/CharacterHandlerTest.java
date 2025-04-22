@@ -57,9 +57,7 @@ class CharacterHandlerTest {
                 "Medium",                  // difficulty
                 new ArrayList<>(),        // pieces
                 new ArrayList<>(),        // powers
-                unlocked,                 // unlocked
                 "test.png",               // imageUrl
-                playerId,                 // playerId
                 0                         // cost (valor por defecto para tests)
         );
     }
@@ -75,41 +73,6 @@ class CharacterHandlerTest {
         when(request.pathVariables()).thenReturn(pathVariables);
     }
 
-
-    //! getCharacterAllId
-//    @Test
-//    void getCharacterAllId_ReturnsOkWithFreeCharacters() {
-//        // Arrange - Usa el FQN implícito gracias al import
-//        List<Character> mockCharacters = List.of(
-//                new Character("1", "Free1", "desc", "easy", null, null, false, "img1", "player1", 0),
-//                new Character("2", "Free2", "desc", "easy", null, null, false, "img2", "player2", 0)
-//        );
-//
-//        when(characterService.getAllFreeCharacters())
-//                .thenReturn(Flux.fromIterable(mockCharacters));
-//
-//        // Act & Assert (igual que antes)
-//        StepVerifier.create(characterHandler.getCharacterAllId(request))
-//                .expectNextMatches(response -> {
-//                    // Para bodyValue():
-//                    Object body = ((EntityResponse) response).entity();
-//                    return response.statusCode() == HttpStatus.OK
-//                            && ((List<Character>) body).size() == 2;
-//                })
-//                .verifyComplete();
-//    }
-//
-//    // test para cuando la lista esté vacía
-//    @Test
-//    void getCharacterAllId_NoFreeCharacters_ReturnsNoContent() {
-//        // Arrange
-//        when(characterService.getAllFreeCharacters()).thenReturn(Flux.empty());
-//
-//        // Act & Assert
-//        StepVerifier.create(characterHandler.getCharacterAllId(request))
-//                .expectNextMatches(response -> response.statusCode() == HttpStatus.NO_CONTENT)
-//                .verifyComplete();
-//    }
 
     //! getAllCharacters
     // Respuesta 200 OK con personajes

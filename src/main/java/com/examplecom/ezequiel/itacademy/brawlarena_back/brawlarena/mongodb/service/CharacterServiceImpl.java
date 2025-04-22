@@ -5,6 +5,7 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.In
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.CharacterUpdateRequest;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.BuildRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.repository.UserRepository;
@@ -14,14 +15,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,17 +27,23 @@ public class CharacterServiceImpl implements CharacterService {
     private static final Logger logger = LoggerFactory.getLogger(CharacterServiceImpl.class);
     private final CharacterRepository characterRepository;
     private final UserRepository userRepository;
-    private final BuildService buildService;
+    private final BuildRepository buildRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
 
 
-    public CharacterServiceImpl(CharacterRepository characterRepository, UserRepository userRepository, BuildService buildService) {
+    public CharacterServiceImpl(CharacterRepository characterRepository,
+                                UserRepository userRepository,
+                                BuildRepository buildRepository,
+                                ObjectMapper objectMapper) {
+
         this.characterRepository = characterRepository;
         this.userRepository = userRepository;
-        this.buildService = buildService;
+        this.buildRepository = buildRepository;
+        this.objectMapper = objectMapper;
     }
+
 
     @Override
     public Flux<Character> getAllCharacters() {
@@ -55,19 +59,31 @@ public class CharacterServiceImpl implements CharacterService {
 
     @Override
     public Flux<Character> getUnlockedCharacters(String playerId) {
-        return characterRepository.findAll()
-                .doOnSubscribe(sub -> logger.info("Buscando personajes desbloqueados para playerId: {}", playerId))
-                .filter(character -> character.isUnlocked() && playerId.equals(character.getPlayerId()))
+        return userRepository.findByNickname(playerId)
+                .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no encontrado")))
+                .flatMapMany(user -> {
+                    List<String> ids = Optional.ofNullable(user.getCharacterIds())
+                            .map(idsStr -> Arrays.stream(idsStr.replace("[", "").replace("]", "").split(","))
+                                    .map(String::trim)
+                                    .filter(s -> !s.isBlank())
+                                    .toList())
+                            .orElse(List.of());
+
+                    logger.info("Buscando personajes desbloqueados para playerId: {}", playerId);
+                    return characterRepository.findAll()
+                            .filter(character -> ids.contains(character.getId()));
+                })
                 .doOnNext(character -> logger.debug("Personaje desbloqueado encontrado: {}", character.getName()))
-                .switchIfEmpty(Flux.defer(() -> {
-                    logger.warn("No se encontraron personajes desbloqueados para playerId: {}", playerId);
-                    return Flux.empty();
-                }))
                 .doOnError(error -> logger.error("Error al obtener personajes desbloqueados: {}", error.getMessage()));
     }
 
     @Override
     public Mono<Boolean> unlockCharacter(String playerId, String characterId) {
+        if (!StringUtils.hasText(characterId)) {
+            logger.warn("ID de personaje vacío o nulo recibido para desbloqueo");
+            return Mono.error(new IllegalArgumentException("ID de personaje inválido"));
+        }
+
         Mono<User> userMono = userRepository.findByNickname(playerId)
                 .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no encontrado")));
 
@@ -79,8 +95,17 @@ public class CharacterServiceImpl implements CharacterService {
                     User user = tuple.getT1();
                     Character character = tuple.getT2();
 
-                    if (character.isUnlocked()) {
-                        logger.warn("El personaje {} ya está desbloqueado", character.getName());
+                    // Usar Set para eficiencia y evitar duplicados
+                    Set<String> idsDesbloqueados = Optional.ofNullable(user.getCharacterIds())
+                            .map(ids -> Arrays.stream(ids.replace("[", "").replace("]", "").split(","))
+                                    .map(String::trim)
+                                    .map(id -> id.replace("\"", ""))
+                                    .filter(StringUtils::hasText)
+                                    .collect(Collectors.toSet()))
+                            .orElse(new HashSet<>());
+
+                    if (idsDesbloqueados.contains(characterId)) {
+                        logger.warn("El personaje {} ya estaba desbloqueado por {}", character.getName(), user.getNickname());
                         return Mono.just(false);
                     }
 
@@ -90,31 +115,16 @@ public class CharacterServiceImpl implements CharacterService {
                     }
 
                     user.setTokens(user.getTokens() - character.getCost());
+                    idsDesbloqueados.add(characterId);
 
-                    List<String> idsList = Optional.ofNullable(user.getCharacterIds())
-                            .map(ids -> new ArrayList<>(Arrays.asList(ids.replace("[", "").replace("]", "").split(","))))
-                            .orElse(new ArrayList<>());
-
-                    if (!idsList.contains(character.getId())) {
-                        idsList.add(character.getId());
-
-                        try {
-                            String formatted = objectMapper.writeValueAsString(idsList);
-                            user.setCharacterIds(formatted);
-                        } catch (JsonProcessingException e) {
-                            logger.error("Error al serializar characterIds: {}", e.getMessage());
-                            return Mono.error(new RuntimeException("Error al guardar los personajes desbloqueados"));
-                        }
+                    try {
+                        user.setCharacterIds(objectMapper.writeValueAsString(idsDesbloqueados));
+                    } catch (JsonProcessingException e) {
+                        logger.error("Error al serializar characterIds: {}", e.getMessage());
+                        return Mono.error(new RuntimeException("Error al guardar los personajes desbloqueados"));
                     }
 
-                    character.setUnlocked(true);
-                    character.setPlayerId(user.getNickname());
-
-                    return Mono.when(
-                            userRepository.save(user),
-                            characterRepository.save(character)
-                    ).thenReturn(true);
-
+                    return userRepository.save(user).thenReturn(true);
                 })
                 .doOnError(error -> logger.error("Error al desbloquear personaje: {}", error.getMessage()));
     }
@@ -145,7 +155,6 @@ public class CharacterServiceImpl implements CharacterService {
 
                     if (request.getPieces() != null) {
                         character.setPieces(request.getPieces());
-                        buildService.clearPiecesCache(characterId);
                     }
 
                     return characterRepository.save(character)

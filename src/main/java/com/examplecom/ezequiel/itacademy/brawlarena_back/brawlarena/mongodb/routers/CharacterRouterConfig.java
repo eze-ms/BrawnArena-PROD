@@ -19,13 +19,6 @@ public class CharacterRouterConfig {
 
     @Bean
     @RouterOperations({
-//            @RouterOperation(
-//                    path = "/characters/free",
-//                    method = RequestMethod.GET,
-//                    beanClass = CharacterHandler.class,
-//                    beanMethod = "getCharacterAllId"
-//            ),
-
             @RouterOperation(
                     path = "/characters/all",
                     method = RequestMethod.GET,
@@ -64,7 +57,6 @@ public class CharacterRouterConfig {
 
     public RouterFunction<ServerResponse> characterRoutes(CharacterHandler handler) {
         return route()
-//                .GET("/characters/free", handler::getCharacterAllId)
                 .GET("/characters/all", handler::getAllCharacters)
                 .GET("/characters/unlocked", handler::getCharacterId)
                 .POST("/characters/unlock", handler::unlockCharacter)

@@ -7,15 +7,15 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.No
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Build;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Piece;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.handlers.BuildHandler;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.BuildRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.web.reactive.function.server.ServerRequest;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -37,27 +37,30 @@ class BuildServiceImplTest {
     private BuildRepository buildRepository;
 
     @Mock
-    private CharacterRepository characterRepository;
+    private UserRepository userRepository;
 
     @Mock
-    private ServerRequest request;
+    private CharacterRepository characterRepository;
 
     @InjectMocks
     private BuildServiceImpl buildService;
 
-    @InjectMocks
-    private BuildHandler buildHandler;
 
-
-    // Helpers
-    private Character createTestCharacter(String id, String playerId, boolean unlocked) {
-        return new Character(
-                id, "Test-" + id, "Desc", "Medium",
-                new ArrayList<>(), new ArrayList<>(),
-                unlocked, "image.png", playerId, 0
-        );
+    // Helper
+    private Character createTestCharacter(String id) {
+        Character character = new Character();
+        character.setId(id);
+        character.setName("Test-" + id);
+        character.setDescription("Desc");
+        character.setDifficulty("Medium");
+        character.setPieces(new ArrayList<>());
+        character.setPowers(new ArrayList<>());
+        character.setImageUrl("image.png");
+        character.setCost(0);
+        return character;
     }
 
+    // Helper
     private Build createTestBuild(String playerId, String characterId, boolean isValid) {
         Build build = new Build();
         build.setPlayerId(playerId);
@@ -70,7 +73,7 @@ class BuildServiceImplTest {
     @Test
     void startBuild_conPersonajeDesbloqueado_creaBuildNoValidado() {
         // Configuración
-        Character character = createTestCharacter("char1", "player1", true);
+        Character character = createTestCharacter("char1");
         when(characterRepository.findById("char1")).thenReturn(Mono.just(character));
         when(buildRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(buildRepository.findAll())
@@ -88,7 +91,7 @@ class BuildServiceImplTest {
 
     @Test
     void startBuild_conBuildExistenteNoValidado_lanzaExcepcion() {
-        Character character = createTestCharacter("char1", "player1", true);
+        Character character = createTestCharacter("char1");
         Build existingBuild = createTestBuild("player1", "char1", false);
 
         when(characterRepository.findById("char1")).thenReturn(Mono.just(character));
@@ -117,7 +120,6 @@ class BuildServiceImplTest {
 
     @Test
     void validateBuild_ValidBuild_ReturnsSuccessResult() {
-
         Build mockBuild = new Build();
         mockBuild.setId("build123");
         mockBuild.setPlayerId("player123");
@@ -133,10 +135,12 @@ class BuildServiceImplTest {
         piece2.setId("piezaCorrecta2");
         piece2.setName("Pieza 2");
 
-        Character mockCharacter = new Character();
-        mockCharacter.setPlayerId("player123");
-        mockCharacter.setUnlocked(true);
+        Character mockCharacter = createTestCharacter("char123");
         mockCharacter.setPieces(List.of(piece1, piece2));
+
+        User mockUser = new User();
+        mockUser.setNickname("player123");
+        mockUser.setCharacterIds("[\"char123\"]");
 
         Build existingBuild = new Build();
         existingBuild.setId("build123");
@@ -144,11 +148,13 @@ class BuildServiceImplTest {
         existingBuild.setCharacterId("char123");
         existingBuild.setValid(false);
 
+        when(userRepository.findByNickname("player123"))
+                .thenReturn(Mono.just(mockUser));
         when(characterRepository.findById("char123")).thenReturn(Mono.just(mockCharacter));
         when(buildRepository.findAll()).thenReturn(Flux.just(existingBuild));
         when(buildRepository.countByPlayerIdAndCharacterIdAndValidTrue("player123", "char123"))
                 .thenReturn(Mono.just(0L));
-        when(buildRepository.save(any(Build.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+        when(buildRepository.save(any(Build.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
         StepVerifier.create(buildService.validateBuild("player123", mockBuild))
                 .assertNext(result -> {
@@ -169,12 +175,15 @@ class BuildServiceImplTest {
         Piece piece = new Piece();
         piece.setId("pieza1");
 
-        Character mockCharacter = new Character();
-        mockCharacter.setPlayerId("player123");
-        mockCharacter.setUnlocked(true);
+        Character mockCharacter = createTestCharacter("char123");
         mockCharacter.setPieces(List.of(piece));
 
+        User mockUser = new User();
+        mockUser.setNickname("player123");
+        mockUser.setCharacterIds("[\"char123\"]");
+
         // Stubs
+        when(userRepository.findByNickname("player123")).thenReturn(Mono.just(mockUser));
         when(characterRepository.findById("char123")).thenReturn(Mono.just(mockCharacter));
         when(buildRepository.findAll()).thenReturn(Flux.empty());
 
@@ -234,29 +243,31 @@ class BuildServiceImplTest {
         mockBuild.setPiecesPlaced(List.of("pieza1"));
         mockBuild.setDuration(100);
 
-        // Configura Character bloqueado
+        // Configura personaje
         Piece piece = new Piece();
         piece.setId("pieza1");
 
-        Character mockCharacter = new Character();
-        mockCharacter.setPlayerId("player123");
-        mockCharacter.setUnlocked(false);
+        Character mockCharacter = createTestCharacter("char123");
         mockCharacter.setPieces(List.of(piece));
 
+        // Usuario SIN ese personaje desbloqueado
+        User mockUser = new User();
+        mockUser.setNickname("player123");
+        mockUser.setCharacterIds("[\"otroPersonaje\"]");
+
         // Stubs
+        when(userRepository.findByNickname("player123")).thenReturn(Mono.just(mockUser));
         when(characterRepository.findById("char123")).thenReturn(Mono.just(mockCharacter));
 
-        // Ejecución y validación
         StepVerifier.create(buildService.validateBuild("player123", mockBuild))
                 .expectErrorMatches(error ->
                         error instanceof CharacterAccessDeniedException &&
-                                error.getMessage().contains("no te pertenece"))
+                                error.getMessage().contains("no has desbloqueado"))
                 .verify();
     }
 
     @Test
     void validateBuild_NoHayBuildPendiente_LanzaNoPendingBuildException() {
-        // Configura Build
         Build mockBuild = new Build();
         mockBuild.setPlayerId("player123");
         mockBuild.setCharacterId("char123");
@@ -266,22 +277,25 @@ class BuildServiceImplTest {
         Piece piece = new Piece();
         piece.setId("pieza1");
 
-        Character mockCharacter = new Character();
-        mockCharacter.setPlayerId("player123");
-        mockCharacter.setUnlocked(true);
+        Character mockCharacter = createTestCharacter("char123");
         mockCharacter.setPieces(List.of(piece));
 
-        // Stubs
-        when(characterRepository.findById("char123")).thenReturn(Mono.just(mockCharacter));
-        when(buildRepository.findAll()).thenReturn(Flux.empty()); // No hay ningún build
+        User mockUser = new User();
+        mockUser.setNickname("player123");
+        mockUser.setCharacterIds("[\"char123\"]");
 
-        // Ejecución y validación
+        // Stubs
+        when(userRepository.findByNickname("player123")).thenReturn(Mono.just(mockUser));
+        when(characterRepository.findById("char123")).thenReturn(Mono.just(mockCharacter));
+        when(buildRepository.findAll()).thenReturn(Flux.empty()); // No hay build pendiente
+
         StepVerifier.create(buildService.validateBuild("player123", mockBuild))
                 .expectErrorMatches(error ->
                         error instanceof NoPendingBuildException &&
                                 error.getMessage().contains("build pendiente"))
                 .verify();
     }
+
 
     @Test
     void getBuildHistory_HistorialConBuilds_ReturnsFluxOrdenado() {
@@ -346,6 +360,5 @@ class BuildServiceImplTest {
                 .expectNext(valido)
                 .verifyComplete();
     }
-
 }
 
