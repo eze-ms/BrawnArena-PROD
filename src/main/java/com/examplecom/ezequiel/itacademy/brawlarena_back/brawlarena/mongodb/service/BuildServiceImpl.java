@@ -1,11 +1,8 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service;
 
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.*;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.logic.ScoreCalculator;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterAccessDeniedException;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterNotFoundException;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.NoPendingBuildException;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Build;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Piece;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.BuildRepository;
@@ -19,12 +16,14 @@ import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+
 import java.util.Optional;
 import java.util.Arrays;
 import java.util.List;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Objects;
 
 @Service
 public class BuildServiceImpl implements BuildService {
@@ -44,6 +43,99 @@ public class BuildServiceImpl implements BuildService {
         this.characterRepository = characterRepository;
         this.scoreCalculator = scoreCalculator;
     }
+
+    private static class EvaluacionPiezas {
+        private final List<Piece> piezasColocadas;
+        private final long errores;
+
+        public EvaluacionPiezas(List<Piece> piezasColocadas, long errores) {
+            this.piezasColocadas = piezasColocadas;
+            this.errores = errores;
+        }
+
+        public List<Piece> getPiezasColocadas() {
+            return piezasColocadas;
+        }
+
+        public long getErrores() {
+            return errores;
+        }
+    }
+
+    private Mono<Character> verificarAcceso(String playerId, String characterId) {
+        Mono<User> userMono = userRepository.findByNickname(playerId)
+                .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no encontrado")));
+
+        Mono<Character> characterMono = characterRepository.findById(characterId)
+                .switchIfEmpty(Mono.error(new CharacterNotFoundException("Personaje no encontrado")));
+
+        return Mono.zip(userMono, characterMono)
+                .flatMap(tuple -> {
+                    User user = tuple.getT1();
+                    Character character = tuple.getT2();
+
+                    List<String> idsDesbloqueados = Optional.ofNullable(user.getCharacterIds())
+                            .map(ids -> Arrays.stream(ids.replace("[", "").replace("]", "").split(","))
+                                    .map(String::trim)
+                                    .map(id -> id.replace("\"", ""))
+                                    .filter(s -> !s.isBlank())
+                                    .toList())
+                            .orElse(List.of());
+
+                    if (!idsDesbloqueados.contains(characterId)) {
+                        logger.warn("Acceso denegado: personaje {} no desbloqueado por jugador {}", characterId, playerId);
+                        return Mono.error(new CharacterAccessDeniedException("No puedes validar un build de un personaje que no has desbloqueado"));
+                    }
+
+                    return Mono.just(character);
+                });
+    }
+
+    private Mono<Build> obtenerBuildPendiente(String playerId, String characterId) {
+        return buildRepository.findByPlayerIdAndCharacterIdAndValidFalse(playerId, characterId)
+                .next()
+                .doOnNext(build -> logger.debug("Build pendiente encontrado para playerId={}, characterId={}: {}", playerId, characterId, build.getId()))
+                .switchIfEmpty(Mono.defer(() -> {
+                    logger.warn("No se encontró build pendiente para playerId={} y characterId={}", playerId, characterId);
+                    return Mono.error(new NoPendingBuildException("No hay un build pendiente para este personaje"));
+                }));
+    }
+
+
+    private EvaluacionPiezas evaluarPiezas(List<String> piezasColocadasIds, List<Piece> piezasCorrectas) {
+        List<Piece> piezasColocadas = piezasCorrectas.stream()
+                .filter(p -> piezasColocadasIds.contains(p.getId()))
+                .toList();
+
+        long errores = piezasColocadasIds.stream()
+                .filter(id -> piezasCorrectas.stream().noneMatch(p -> p.getId().equals(id)))
+                .count();
+
+        return new EvaluacionPiezas(piezasColocadas, errores);
+    }
+
+    private Mono<Build> completarYGuardarBuild(Build build, List<String> piezasColocadasIds, long errores, int duration, boolean primeraVez, List<Piece> piezasColocadas, List<Piece> piezasCorrectas) {
+        int score = scoreCalculator.calculateScore(
+                piezasColocadas,
+                piezasCorrectas,
+                (int) errores,
+                duration,
+                primeraVez
+        );
+
+        build.setValid(true);
+        build.setScore(score);
+        build.setDuration(duration);
+        build.setErrors((int) errores);
+        build.setPiecesPlaced(piezasColocadasIds);
+
+        return buildRepository.save(build)
+                .doOnSuccess(saved -> logger.info(
+                        "Build validado: {} | Score: {} | Duration: {}s | Errores: {}",
+                        saved.getId(), score, duration, errores
+                ));
+    }
+
 
     @Override
     public Mono<Build> startBuild(String playerId, String characterId) {
@@ -79,7 +171,7 @@ public class BuildServiceImpl implements BuildService {
                             .flatMap(exists -> {
                                 if (exists) {
                                     logger.warn("Ya existe un build no validado para jugador {} y personaje {}", playerId, characterId);
-                                    return Mono.error(new IllegalStateException("Ya tienes un build activo para este personaje"));
+                                    return Mono.error(new BuildAlreadyExistsException("Ya tienes un build activo para este personaje"));
                                 }
 
                                 Build newBuild = new Build();
@@ -98,82 +190,135 @@ public class BuildServiceImpl implements BuildService {
     @Override
     @Transactional
     public Mono<Build> validateBuild(String playerId, Build buildData) {
+
+        Objects.requireNonNull(playerId, "playerId no puede ser null");
+        Objects.requireNonNull(buildData, "buildData no puede ser null");
+        Objects.requireNonNull(buildData.getCharacterId(), "characterId no puede ser null");
+        Objects.requireNonNull(buildData.getPiecesPlaced(), "piecesPlaced no puede ser null");
+        if (buildData.getDuration() <= 0) {
+            throw new IllegalArgumentException("La duración debe ser mayor que 0");
+        }
+
+
         String characterId = buildData.getCharacterId();
         List<String> piezasColocadasIds = buildData.getPiecesPlaced();
         long duration = buildData.getDuration();
 
-        return Mono.zip(
-                userRepository.findByNickname(playerId)
-                        .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no encontrado"))),
-                characterRepository.findById(characterId)
-                        .switchIfEmpty(Mono.error(new CharacterNotFoundException("Personaje no encontrado")))
-        ).flatMap(tuple -> {
-            User user = tuple.getT1();
-            Character character = tuple.getT2();
-
-            List<String> idsDesbloqueados = Optional.ofNullable(user.getCharacterIds())
-                    .map(ids -> Arrays.stream(ids.replace("[", "").replace("]", "").split(","))
-                            .map(String::trim)
-                            .map(id -> id.replace("\"", ""))
-                            .filter(s -> !s.isBlank())
-                            .toList())
-                    .orElse(List.of());
-
-            if (!idsDesbloqueados.contains(characterId)) {
-                return Mono.error(new CharacterAccessDeniedException("No puedes validar un build de un personaje que no has desbloqueado"));
-            }
-
-            List<Piece> piezasCorrectas = piezasCache.computeIfAbsent(characterId, id -> {
-                List<Piece> piezas = character.getPieces();
-                if (piezas == null) {
-                    logger.warn("El personaje {} no tiene piezas asignadas", characterId);
-                    return List.of();
-                }
-                return piezas;
-            });
-
-            return buildRepository.findAll()
-                    .filter(build -> build.getPlayerId().equals(playerId)
-                            && build.getCharacterId().equals(characterId)
-                            && !build.isValid())
-                    .next()
-                    .switchIfEmpty(Mono.error(new NoPendingBuildException("No hay un build pendiente para este personaje")))
-                    .flatMap(buildExistente -> {
-
-                        List<Piece> piezasColocadas = piezasCorrectas.stream()
-                                .filter(p -> piezasColocadasIds.contains(p.getId()))
-                                .toList();
-
-                        long errores = piezasColocadasIds.stream()
-                                .filter(id -> piezasCorrectas.stream().noneMatch(p -> p.getId().equals(id)))
-                                .count();
-
-                        return buildRepository.countByPlayerIdAndCharacterIdAndValidTrue(playerId, characterId)
-                                .map(count -> count == 0)
-                                .flatMap(primeraVezCompletado -> {
-                                    int score = scoreCalculator.calculateScore(
-                                            piezasColocadas,
-                                            piezasCorrectas,
-                                            (int) errores,
-                                            duration,
-                                            primeraVezCompletado
-                                    );
-
-                                    buildExistente.setValid(true);
-                                    buildExistente.setScore(score);
-                                    buildExistente.setDuration(duration);
-                                    buildExistente.setErrors((int) errores);
-                                    buildExistente.setPiecesPlaced(piezasColocadasIds);
-
-                                    return buildRepository.save(buildExistente)
-                                            .doOnSuccess(saved -> logger.info(
-                                                    "Build validado: {} | Score: {} | Duration: {}s | Errores: {}",
-                                                    saved.getId(), score, duration, errores
-                                            ));
-                                });
+        return verificarAcceso(playerId, characterId)
+                .flatMap(character -> {
+                    List<Piece> piezasCorrectas = piezasCache.computeIfAbsent(characterId, id -> {
+                        List<Piece> piezas = character.getPieces();
+                        if (piezas == null) {
+                            logger.warn("El personaje {} no tiene piezas asignadas", characterId);
+                            return List.of();
+                        }
+                        return piezas;
                     });
-        }).doOnError(error -> logger.error("Error durante la validación de build: {}", error.getMessage()));
+
+                    return obtenerBuildPendiente(playerId, characterId)
+                            .flatMap(buildExistente -> {
+                                EvaluacionPiezas evaluacion = evaluarPiezas(piezasColocadasIds, piezasCorrectas);
+                                List<Piece> piezasColocadas = evaluacion.getPiezasColocadas();
+                                long errores = evaluacion.getErrores();
+
+                                return buildRepository.countByPlayerIdAndCharacterIdAndValidTrue(playerId, characterId)
+                                        .map(count -> count == 0)
+                                        .flatMap(primeraVezCompletado ->
+                                                completarYGuardarBuild(
+                                                        buildExistente,
+                                                        piezasColocadasIds,
+                                                        errores,
+                                                        (int) duration,
+                                                        primeraVezCompletado,
+                                                        piezasColocadas,
+                                                        piezasCorrectas
+                                                )
+                                        );
+                            });
+                })
+                .doOnError(error -> logger.error("Error durante la validación de build: {}", error.getMessage()));
     }
+
+
+//    @Override
+//    @Transactional
+//    public Mono<Build> validateBuild(String playerId, Build buildData) {
+//        String characterId = buildData.getCharacterId();
+//        List<String> piezasColocadasIds = buildData.getPiecesPlaced();
+//        long duration = buildData.getDuration();
+//
+//        return Mono.zip(
+//                userRepository.findByNickname(playerId)
+//                        .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no encontrado"))),
+//                characterRepository.findById(characterId)
+//                        .switchIfEmpty(Mono.error(new CharacterNotFoundException("Personaje no encontrado")))
+//        ).flatMap(tuple -> {
+//            User user = tuple.getT1();
+//            Character character = tuple.getT2();
+//
+//            List<String> idsDesbloqueados = Optional.ofNullable(user.getCharacterIds())
+//                    .map(ids -> Arrays.stream(ids.replace("[", "").replace("]", "").split(","))
+//                            .map(String::trim)
+//                            .map(id -> id.replace("\"", ""))
+//                            .filter(s -> !s.isBlank())
+//                            .toList())
+//                    .orElse(List.of());
+//
+//            if (!idsDesbloqueados.contains(characterId)) {
+//                return Mono.error(new CharacterAccessDeniedException("No puedes validar un build de un personaje que no has desbloqueado"));
+//            }
+//
+//            List<Piece> piezasCorrectas = piezasCache.computeIfAbsent(characterId, id -> {
+//                List<Piece> piezas = character.getPieces();
+//                if (piezas == null) {
+//                    logger.warn("El personaje {} no tiene piezas asignadas", characterId);
+//                    return List.of();
+//                }
+//                return piezas;
+//            });
+//
+//            return buildRepository.findAll()
+//                    .filter(build -> build.getPlayerId().equals(playerId)
+//                            && build.getCharacterId().equals(characterId)
+//                            && !build.isValid())
+//                    .next()
+//                    .switchIfEmpty(Mono.error(new NoPendingBuildException("No hay un build pendiente para este personaje")))
+//                    .flatMap(buildExistente -> {
+//
+//                        List<Piece> piezasColocadas = piezasCorrectas.stream()
+//                                .filter(p -> piezasColocadasIds.contains(p.getId()))
+//                                .toList();
+//
+//                        long errores = piezasColocadasIds.stream()
+//                                .filter(id -> piezasCorrectas.stream().noneMatch(p -> p.getId().equals(id)))
+//                                .count();
+//
+//                        return buildRepository.countByPlayerIdAndCharacterIdAndValidTrue(playerId, characterId)
+//                                .map(count -> count == 0)
+//                                .flatMap(primeraVezCompletado -> {
+//                                    int score = scoreCalculator.calculateScore(
+//                                            piezasColocadas,
+//                                            piezasCorrectas,
+//                                            (int) errores,
+//                                            duration,
+//                                            primeraVezCompletado
+//                                    );
+//
+//                                    buildExistente.setValid(true);
+//                                    buildExistente.setScore(score);
+//                                    buildExistente.setDuration(duration);
+//                                    buildExistente.setErrors((int) errores);
+//                                    buildExistente.setPiecesPlaced(piezasColocadasIds);
+//
+//                                    return buildRepository.save(buildExistente)
+//                                            .doOnSuccess(saved -> logger.info(
+//                                                    "Build validado: {} | Score: {} | Duration: {}s | Errores: {}",
+//                                                    saved.getId(), score, duration, errores
+//                                            ));
+//                                });
+//                    });
+//        }).doOnError(error -> logger.error("Error durante la validación de build: {}", error.getMessage()));
+//    }
 
     @Override
     public Flux<Build> getBuildHistory(String playerId) {
@@ -187,5 +332,4 @@ public class BuildServiceImpl implements BuildService {
         piezasCache.remove(characterId);
         logger.info("Caché de piezas eliminada para personaje {}", characterId);
     }
-
 }

@@ -1,6 +1,7 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service;
 
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.validator.BuildValidator;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.BuildAlreadyExistsException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterAccessDeniedException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.NoPendingBuildException;
@@ -71,7 +72,7 @@ class BuildServiceImplTest {
 
     @Test
     void startBuild_conPersonajeDesbloqueado_creaBuildNoValidado() {
-        // Usuario con personaje desbloqueado
+
         User mockUser = User.builder()
                 .nickname("player1")
                 .characterIds("[\"char1\"]")
@@ -79,14 +80,12 @@ class BuildServiceImplTest {
 
         when(userRepository.findByNickname("player1")).thenReturn(Mono.just(mockUser));
 
-        // Personaje correspondiente
         Character character = createTestCharacter("char1");
         when(characterRepository.findById("char1")).thenReturn(Mono.just(character));
 
         when(buildRepository.findAll()).thenReturn(Flux.empty());
         when(buildRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        // Ejecución y validación
         StepVerifier.create(buildService.startBuild("player1", "char1"))
                 .expectNextMatches(build ->
                         build.getPlayerId().equals("player1") &&
@@ -112,11 +111,11 @@ class BuildServiceImplTest {
 
         StepVerifier.create(buildService.startBuild("player1", "char1"))
                 .expectErrorMatches(ex ->
-                        ex instanceof IllegalStateException &&
-                                ex.getMessage().equals("Ya tienes un build activo para este personaje")
-                )
+                        ex instanceof BuildAlreadyExistsException &&
+                                ex.getMessage().equals("Ya tienes un build activo para este personaje"))
                 .verify();
     }
+
 
     @Test
     void validateBuildData_conPiezasNull_lanzaExcepcion() {
@@ -162,12 +161,16 @@ class BuildServiceImplTest {
 
         when(userRepository.findByNickname("player123"))
                 .thenReturn(Mono.just(mockUser));
+
         when(characterRepository.findById("char123"))
                 .thenReturn(Mono.just(mockCharacter));
-        when(buildRepository.findAll())
-                .thenReturn(Flux.just(existingBuild));
+
+        when(buildRepository.findByPlayerIdAndCharacterIdAndValidFalse("player123", "char123"))
+                .thenReturn(Flux.just(existingBuild)); // ✅ NUEVO MOCK CORRECTO
+
         when(buildRepository.countByPlayerIdAndCharacterIdAndValidTrue("player123", "char123"))
                 .thenReturn(Mono.just(0L));
+
         when(buildRepository.save(any(Build.class)))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
@@ -200,7 +203,10 @@ class BuildServiceImplTest {
 
         when(userRepository.findByNickname("player123")).thenReturn(Mono.just(mockUser));
         when(characterRepository.findById("char123")).thenReturn(Mono.just(mockCharacter));
-        when(buildRepository.findAll()).thenReturn(Flux.empty());
+
+        // ✅ Mock actualizado tras la refactorización
+        when(buildRepository.findByPlayerIdAndCharacterIdAndValidFalse("player123", "char123"))
+                .thenReturn(Flux.empty());
 
         StepVerifier.create(buildService.validateBuild("player123", mockBuild))
                 .expectErrorMatches(error ->
@@ -304,10 +310,12 @@ class BuildServiceImplTest {
         mockUser.setNickname("player123");
         mockUser.setCharacterIds("[\"char123\"]");
 
-        // Stubs
         when(userRepository.findByNickname("player123")).thenReturn(Mono.just(mockUser));
         when(characterRepository.findById("char123")).thenReturn(Mono.just(mockCharacter));
-        when(buildRepository.findAll()).thenReturn(Flux.empty()); // No hay build pendiente
+
+        // ✅ Mock correcto tras la refactorización
+        when(buildRepository.findByPlayerIdAndCharacterIdAndValidFalse("player123", "char123"))
+                .thenReturn(Flux.empty());
 
         StepVerifier.create(buildService.validateBuild("player123", mockBuild))
                 .expectErrorMatches(error ->

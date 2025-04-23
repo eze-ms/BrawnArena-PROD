@@ -15,9 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-
 import java.util.ArrayList;
-
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -34,9 +32,6 @@ class CharacterServiceImplTest {
 
     @Mock
     private BuildRepository buildRepository;
-
-    @Mock
-    private BuildService buildService;
 
     @Mock
     private ObjectMapper objectMapper;
@@ -59,18 +54,16 @@ class CharacterServiceImplTest {
         );
     }
 
-
     // ! Test para getAllCharacters
     @Test
     void getAllCharacters_ReturnsFluxOfCharacters() {
-        // Configuración
+
         Character char1 = createTestCharacter("1");
         Character char2 = createTestCharacter("2");
 
         when(characterRepository.findAll())
                 .thenReturn(Flux.just(char1, char2));
 
-        // Ejecución y validación
         StepVerifier.create(characterService.getAllCharacters())
                 .expectNext(char1)
                 .expectNext(char2)
@@ -79,11 +72,10 @@ class CharacterServiceImplTest {
 
     @Test
     void getAllCharacters_ReturnsEmptyFluxWhenNoCharacters() {
-        // Configuración
+
         when(characterRepository.findAll())
                 .thenReturn(Flux.empty());
 
-        // Ejecución y validación
         StepVerifier.create(characterService.getAllCharacters())
                 .expectNextCount(0)
                 .verifyComplete();
@@ -91,12 +83,11 @@ class CharacterServiceImplTest {
 
     @Test
     void getAllCharacters_PropagatesRepositoryError() {
-        // Configuración
+
         RuntimeException simulatedError = new RuntimeException("Error en MongoDB");
         when(characterRepository.findAll())
                 .thenReturn(Flux.error(simulatedError));
 
-        // Ejecución y validación
         StepVerifier.create(characterService.getAllCharacters())
                 .expectErrorMatches(ex -> {
                     assertThat(ex).isInstanceOf(RuntimeException.class);
@@ -166,7 +157,7 @@ class CharacterServiceImplTest {
     //! Test para unlockCharacter
     @Test
     void unlockCharacter_SuccessfullyUnlocks_ReturnsTrue() {
-        // Mocks necesarios
+
         BuildService buildService = mock(BuildService.class);
 
         Character lockedChar = createTestCharacter("char1");
@@ -175,15 +166,13 @@ class CharacterServiceImplTest {
         User testUser = User.builder()
                 .nickname("player1")
                 .tokens(100)
-                .characterIds("[]") // Lista vacía
+                .characterIds("[]")
                 .build();
 
-        // Stubs
         when(characterRepository.findById("char1")).thenReturn(Mono.just(lockedChar));
         when(userRepository.findByNickname("player1")).thenReturn(Mono.just(testUser));
         when(userRepository.save(any(User.class))).thenReturn(Mono.just(testUser));
 
-        // Instancia del servicio con todas las dependencias
         CharacterServiceImpl characterService = new CharacterServiceImpl(
                 characterRepository,
                 userRepository,
@@ -192,7 +181,6 @@ class CharacterServiceImplTest {
                 objectMapper
         );
 
-        // Verificación
         StepVerifier.create(characterService.unlockCharacter("player1", "char1"))
                 .expectNext(true)
                 .verifyComplete();
@@ -200,12 +188,12 @@ class CharacterServiceImplTest {
 
     @Test
     void unlockCharacter_AlreadyUnlocked_ReturnsFalse() {
-        // Configura mocks
+
         Character unlockedChar = createTestCharacter("char1");
         User testUser = User.builder()
                 .nickname("player1")
                 .tokens(100)
-                .characterIds("[\"char1\"]") // Ya desbloqueado
+                .characterIds("[\"char1\"]")
                 .build();
 
         when(characterRepository.findById("char1"))
@@ -223,8 +211,8 @@ class CharacterServiceImplTest {
     void unlockCharacter_NotFound_ThrowsException() {
         when(characterRepository.findById("char1"))
                 .thenReturn(Mono.empty());
-        when(userRepository.findByNickname("player1")) // Mock necesario para evitar NPE
-                .thenReturn(Mono.just(User.builder().build())); // User dummy
+        when(userRepository.findByNickname("player1"))
+                .thenReturn(Mono.just(User.builder().build()));
 
         StepVerifier.create(characterService.unlockCharacter("player1", "char1"))
                 .expectErrorMatches(ex -> ex instanceof CharacterNotFoundException &&
@@ -234,11 +222,10 @@ class CharacterServiceImplTest {
 
     @Test
     void unlockCharacter_RepositoryError_PropagatesError() {
-        // Mock de UserRepository para evitar NPE
-        when(userRepository.findByNickname("player1"))
-                .thenReturn(Mono.just(User.builder().build())); // User dummy
 
-        // Mock del error en CharacterRepository
+        when(userRepository.findByNickname("player1"))
+                .thenReturn(Mono.just(User.builder().build()));
+
         when(characterRepository.findById("char1"))
                 .thenReturn(Mono.error(new RuntimeException("DB Error")));
 

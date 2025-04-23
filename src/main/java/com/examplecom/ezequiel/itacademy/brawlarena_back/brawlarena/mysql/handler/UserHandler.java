@@ -1,5 +1,6 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.handler;
 
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -131,7 +132,7 @@ public class UserHandler {
     public Mono<ServerResponse> getUserGallery(ServerRequest request) {
         return Mono.from(request.principal())
                 .map(principal -> (Authentication) principal)
-                .switchIfEmpty(Mono.error(new IllegalStateException("Principal inválido")))
+                .switchIfEmpty(Mono.error(new UserNotFoundException("Autenticación requerida")))
                 .flatMap(auth -> userService.getCharacterIds(auth.getName()))
                 .flatMap(ids -> ServerResponse.ok().bodyValue(ids))
                 .onErrorResume(e -> ServerResponse.badRequest().bodyValue(e.getMessage()));

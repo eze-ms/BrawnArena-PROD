@@ -61,16 +61,12 @@ public class UserServiceImpl implements UserService {
                     logger.info("Registrando nuevo usuario: {}", user.getNickname());
                     user.setPassword(passwordEncoder.encode(user.getPassword()));
                     user.setRole("USER");
-                    user.setTokens(50); // Asignación inicial
-                    if (user.getCharacterIds() == null) {
-                        user.setCharacterIds("[]");
-                    }
+                    user.setTokens(50);
                     return userRepository.save(user);
                 }))
                 .doOnNext(savedUser -> logger.info("Usuario guardado: {}", savedUser))
                 .doOnError(e -> logger.error("Error al registrar el usuario: {}", e.getMessage()));
     }
-
 
     @Override
     public Mono<User> updateTokens(String nickname, int newTokens) {

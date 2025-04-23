@@ -1,9 +1,15 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.handlers;
 
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.CharacterResponse;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.CharacterUpdateRequest;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.CharacterService;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.repository.UserRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.security.JwtService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
@@ -19,25 +25,58 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 @Component
 public class CharacterHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(CharacterHandler.class);
+
     private final JwtService jwtService;
     private final CharacterService characterService;
+    private final UserRepository userRepository;
+    private final ObjectMapper objectMapper;
 
-    public CharacterHandler(CharacterService characterService, JwtService jwtService) {
+
+    public CharacterHandler(
+            CharacterService characterService,
+            JwtService jwtService,
+            UserRepository userRepository,
+            ObjectMapper objectMapper
+    ) {
         this.characterService = characterService;
         this.jwtService = jwtService;
+        this.userRepository = userRepository;
+        this.objectMapper = objectMapper;
     }
 
+
+    private CharacterResponse mapToResponse(Character character, Set<String> unlockedIds) {
+        boolean unlocked = unlockedIds.contains(character.getId());
+
+        return new CharacterResponse(
+                character.getId(),
+                character.getName(),
+                character.getDescription(),
+                character.getDifficulty(),
+                character.getImageUrl(),
+                character.getCost(),
+                character.getPowers(),
+                character.getPieces(),
+                unlocked
+        );
+    }
 
     //! Devuelve la lista completa de personajes, sin filtrar por desbloqueo o usuario
     @Operation(
             summary = "Obtener todos los personajes",
-            description = "Devuelve la lista completa de personajes disponibles en el juego, tanto desbloqueados como bloqueados.",
+            description = "Devuelve la lista completa de personajes disponibles en el juego, marcando cuáles están desbloqueados por el jugador autenticado.",
             security = @SecurityRequirement(name = "bearerAuth"),
             operationId = "getAllCharacters"
     )
@@ -46,7 +85,7 @@ public class CharacterHandler {
                     @ApiResponse(
                             responseCode = "200",
                             description = "Personajes obtenidos correctamente.",
-                            content = @Content(schema = @Schema(implementation = Character.class))
+                            content = @Content(schema = @Schema(implementation = CharacterResponse.class))
                     ),
                     @ApiResponse(
                             responseCode = "204",
@@ -60,21 +99,43 @@ public class CharacterHandler {
     )
     public Mono<ServerResponse> getAllCharacters(ServerRequest request) {
         logger.info("Solicitud recibida: obtener todos los personajes");
-        return characterService.getAllCharacters()
+
+        return request.principal()
+                .cast(Authentication.class)
+                .map(Authentication::getName)
+                .flatMapMany(playerId ->
+                        userRepository.findByNickname(playerId)
+                                .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no encontrado")))
+                                .flatMapMany(user -> {
+                                    Set<String> unlockedIds;
+                                    try {
+                                        String characterIdsJson = Optional.ofNullable(user.getCharacterIds()).orElse("[]");
+                                        List<String> ids = objectMapper.readValue(characterIdsJson, new TypeReference<>() {});
+                                        unlockedIds = new HashSet<>(ids);
+                                    } catch (JsonProcessingException e) {
+                                        logger.error("Error al deserializar characterIds: {}", e.getMessage());
+                                        return Flux.error(new RuntimeException("Error al procesar personajes desbloqueados"));
+                                    }
+
+                                    return characterService.getAllCharacters()
+                                            .map(character -> mapToResponse(character, unlockedIds));
+                                })
+                )
                 .collectList()
-                .flatMap(characters -> {
-                    if (characters.isEmpty()) {
+                .flatMap(characterResponses -> {
+                    if (characterResponses.isEmpty()) {
                         return ServerResponse.noContent()
-                                .header("X-API-Version", "1.0")  // Ejemplo de header adicional
+                                .header("X-API-Version", "1.0")
                                 .build();
                     }
                     return ServerResponse.ok()
-                            .contentType(MediaType.APPLICATION_JSON)  // ¡Explícito y obligatorio!
-                            .header("X-API-Version", "1.0")          // Headers estándar
-                            .bodyValue(characters);
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .header("X-API-Version", "1.0")
+                            .bodyValue(characterResponses);
                 })
                 .doOnError(e -> logger.error("Error al recuperar personajes", e));
     }
+
 
     //! Devuelve los personajes que el jugador ha desbloqueado
     @Operation(

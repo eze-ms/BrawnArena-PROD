@@ -1,14 +1,14 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.handler;
 
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.Role;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.dto.LoginRequest;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.service.UserService;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.security.JwtService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -34,11 +34,14 @@ public class AuthHandler {
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final CharacterRepository characterRepository;
 
-    public AuthHandler(UserService userService, PasswordEncoder passwordEncoder, JwtService jwtService) {
+
+    public AuthHandler(UserService userService, PasswordEncoder passwordEncoder, JwtService jwtService, CharacterRepository characterRepository) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.characterRepository = characterRepository;
     }
 
     @Operation(
@@ -81,11 +84,27 @@ public class AuthHandler {
     )
     public Mono<ServerResponse> registerUser(ServerRequest request) {
         return request.bodyToMono(User.class)
-                .doOnNext(user -> logger.info("Registrando nuevo usuario: {}", user)) // Log antes de guardar
-                .flatMap(userService::save) // Delegamos al servicio para guardar el usuario
-                .doOnNext(savedUser -> logger.info("Usuario registrado exitosamente: {}", savedUser)) // Log de éxito
+                .doOnNext(user -> logger.info("Registrando nuevo usuario: {}", user))
+                .flatMap(user ->
+                        characterRepository.findAll()
+                                .filter(character -> character.getCost() == 0)
+                                .map(character -> character.getId())
+                                .collectList()
+                                .flatMap(freeIds -> {
+                                    try {
+                                        ObjectMapper objectMapper = new ObjectMapper();
+                                        user.setCharacterIds(objectMapper.writeValueAsString(freeIds));
+                                    } catch (Exception e) {
+                                        logger.error("Error al serializar personajes gratuitos: {}", e.getMessage());
+                                        return Mono.error(new RuntimeException("Error al preparar el registro del usuario"));
+                                    }
+                                    return userService.save(user);
+                                })
+                )
+
+                .doOnNext(savedUser -> logger.info("Usuario registrado exitosamente: {}", savedUser))
                 .flatMap(savedUser -> ServerResponse.status(HttpStatus.CREATED).bodyValue(savedUser))
-                .doOnError(e -> logger.error("Error al registrar el usuario: {}", e.getMessage())) // Log de error
+                .doOnError(e -> logger.error("Error al registrar el usuario: {}", e.getMessage()))
                 .onErrorResume(e -> ServerResponse.status(HttpStatus.CONFLICT)
                         .bodyValue("El nickname ya está en uso."));
     }

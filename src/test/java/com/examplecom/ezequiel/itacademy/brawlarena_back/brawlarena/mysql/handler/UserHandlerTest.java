@@ -77,12 +77,11 @@ class UserHandlerTest {
 
     @Test
     void getCurrentUser_UserNotFound() {
+
         String nickname = "nonExistentUser";
 
-        // Usa el método helper para crear el mock
         ServerRequest request = createMockRequest(nickname, null);
 
-        // Configura el mock del servicio para devolver error
         when(userService.findByNickname(nickname))
                 .thenReturn(Mono.error(new UserNotFoundException("Usuario no encontrado")));
 
@@ -90,7 +89,7 @@ class UserHandlerTest {
 
         StepVerifier.create(response)
                 .expectNextMatches(serverResponse -> {
-                    assertEquals(HttpStatus.NOT_FOUND, serverResponse.statusCode()); // Usamos assertEquals aquí
+                    assertEquals(HttpStatus.NOT_FOUND, serverResponse.statusCode());
                     return true;
                 })
                 .verifyComplete();
@@ -99,6 +98,7 @@ class UserHandlerTest {
     //! test updateUserTokens
     @Test
     void updateUserTokens_Success() {
+
         String nickname = "testUser";
         int newTokens = 150;
         User updatedUser = new User(1L, nickname, "password123", newTokens, "USER", "[]");
@@ -116,6 +116,7 @@ class UserHandlerTest {
 
     @Test
     void updateUserTokens_InvalidInput() {
+
         String nickname = "testUser";
         int invalidTokens = -50;
 
@@ -134,6 +135,7 @@ class UserHandlerTest {
     //! test addCharacterId
     @Test
     void addCharacterId_Success() throws JsonProcessingException {
+
         String nickname = "testUser";
         Long characterId = 123L;
 
@@ -146,12 +148,10 @@ class UserHandlerTest {
                 .build();
 
 
-        // Debug del mock
         System.out.println("[TEST] User mockeado: " + mockUser);
 
         ServerRequest request = createMockRequest(nickname, characterId);
 
-        // Debug del request mockeado
         request.bodyToMono(Long.class).subscribe(b ->
                 System.out.println("[TEST] Body del request mockeado: " + b));
         request.principal().subscribe(p ->
@@ -170,7 +170,7 @@ class UserHandlerTest {
 
     @Test
     void addCharacterId_UserNotFound() {
-        // Arrange
+
         String nickname = "usuarioInexistente";
         Long characterId = 123L;
 
@@ -178,11 +178,10 @@ class UserHandlerTest {
         when(userService.addCharacterId(nickname, characterId))
                 .thenReturn(Mono.error(new UserNotFoundException("Usuario no encontrado")));
 
-        // Act & Assert
         StepVerifier.create(userHandler.addCharacterId(request))
                 .expectNextMatches(res -> {
                     System.out.println("[TEST] Status de error recibido: " + res.statusCode());
-                    return res.statusCode() == HttpStatus.BAD_REQUEST; // Verifica que devuelve 400
+                    return res.statusCode() == HttpStatus.BAD_REQUEST;
                 })
                 .verifyComplete();
     }

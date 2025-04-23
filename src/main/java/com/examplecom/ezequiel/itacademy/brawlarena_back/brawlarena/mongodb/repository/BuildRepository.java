@@ -9,6 +9,6 @@ import reactor.core.publisher.Mono;
 public interface BuildRepository extends ReactiveMongoRepository<Build, String> {
     Mono<Long> countByPlayerIdAndCharacterIdAndValidTrue(String playerId, String characterId);
     Flux<Build> findByPlayerIdAndValidTrueOrderByCreatedAtDesc(String playerId);
-
+    Flux<Build> findByPlayerIdAndCharacterIdAndValidFalse(String playerId, String characterId); // Nuevo después de refactorizar validateBuild
 
 }

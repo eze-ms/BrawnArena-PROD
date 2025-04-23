@@ -3,14 +3,17 @@ package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.handl
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.Role;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.NicknameAlreadyExistsException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.dto.LoginRequest;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.service.UserService;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.security.JwtService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.netty.handler.codec.Headers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -19,11 +22,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.reactive.function.server.EntityResponse;
 import org.springframework.web.reactive.function.server.ServerRequest;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.util.Map;
 
+import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -40,6 +46,9 @@ class AuthHandlerTest {
     private JwtService jwtService;
 
     @Mock
+    private CharacterRepository characterRepository;
+
+    @Mock
     private Headers headers;
 
     @Mock
@@ -51,21 +60,38 @@ class AuthHandlerTest {
     @Test
     void registerUser_Success() {
         User newUser = new User(null, "newUser", "password123", 100, "USER", "[]");
-        User savedUser = new User(1L, "newUser", "encodedPassword", 100, "USER", "[]");
+
+        Character freeCharacter = new Character();
+        freeCharacter.setId("free1");
+        freeCharacter.setCost(0);
 
         when(request.bodyToMono(User.class)).thenReturn(Mono.just(newUser));
-        when(userService.save(any(User.class))).thenReturn(Mono.just(savedUser));
+        when(characterRepository.findAll()).thenReturn(Flux.just(freeCharacter));
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        when(userService.save(userCaptor.capture())).thenAnswer(invocation -> Mono.just(userCaptor.getValue()));
 
         StepVerifier.create(authHandler.registerUser(request))
-                .expectNextMatches(serverResponse -> serverResponse.statusCode() == HttpStatus.CREATED)
+                .expectNextMatches(response -> response.statusCode() == HttpStatus.CREATED)
                 .verifyComplete();
+
+        // Verificación explícita del campo characterIds
+        User captured = userCaptor.getValue();
+        assertNotNull(captured);
+        assertEquals("[\"free1\"]", captured.getCharacterIds());
     }
+
 
     @Test
     void registerUser_ConflictWhenNicknameExists() {
         User existingUser = new User(null, "existingUser", "password123", 100, "USER", "[]");
 
-        when(request.bodyToMono(User.class)).thenReturn(Mono.just(existingUser));
+        when(request.bodyToMono(User.class))
+                .thenReturn(Mono.just(existingUser));
+
+        when(characterRepository.findAll())
+                .thenReturn(Flux.empty());
+
         when(userService.save(any(User.class)))
                 .thenReturn(Mono.error(new NicknameAlreadyExistsException("Nickname already exists")));
 
@@ -73,6 +99,7 @@ class AuthHandlerTest {
                 .expectNextMatches(serverResponse -> serverResponse.statusCode() == HttpStatus.CONFLICT)
                 .verifyComplete();
     }
+
 
     @Test
     void loginUser_Success() {
@@ -116,12 +143,11 @@ class AuthHandlerTest {
 
     @Test
     void validateToken_ValidToken() {
-        // Mock de headers
+
         ServerRequest.Headers headersMock = Mockito.mock(ServerRequest.Headers.class);
         when(request.headers()).thenReturn(headersMock);
         when(headersMock.firstHeader("Authorization")).thenReturn("Bearer validToken");
 
-        // Mock de JwtService
         Claims mockClaims = Jwts.claims().setSubject("user1");
         mockClaims.put("role", "USER");
         when(jwtService.validateToken("validToken")).thenReturn(true);
@@ -141,12 +167,11 @@ class AuthHandlerTest {
 
     @Test
     void validateToken_InvalidToken() {
-        // Mock de headers
+
         ServerRequest.Headers headersMock = Mockito.mock(ServerRequest.Headers.class);
         when(request.headers()).thenReturn(headersMock);
         when(headersMock.firstHeader("Authorization")).thenReturn("Bearer invalidToken");
 
-        // Mock de validación fallida
         when(jwtService.validateToken("invalidToken")).thenReturn(false);
 
         StepVerifier.create(authHandler.validateToken(request))
@@ -161,6 +186,7 @@ class AuthHandlerTest {
 
     @Test
     void validateToken_MissingToken() {
+
         ServerRequest.Headers headersMock = Mockito.mock(ServerRequest.Headers.class);
         when(request.headers()).thenReturn(headersMock);
         when(headersMock.firstHeader("Authorization")).thenReturn(null);
