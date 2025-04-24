@@ -51,6 +51,12 @@ public class CharacterRouterConfig {
                     method = RequestMethod.PUT,
                     beanClass = CharacterHandler.class,
                     beanMethod = "updateCharacter"
+            ),
+            @RouterOperation(
+                    path = "/characters/{id}/pieces",
+                    method = RequestMethod.POST,
+                    beanClass = CharacterHandler.class,
+                    beanMethod = "assignPiecesToCharacter"
             )
 
     })
@@ -62,6 +68,7 @@ public class CharacterRouterConfig {
                 .POST("/characters/unlock", handler::unlockCharacter)
                 .GET("/characters/{id}", handler::getCharacterDetail)
                 .PUT("/characters/{id}", handler::updateCharacter)
+                .POST("/characters/{id}/pieces", handler::assignPiecesToCharacter)
                 .build();
     }
 }

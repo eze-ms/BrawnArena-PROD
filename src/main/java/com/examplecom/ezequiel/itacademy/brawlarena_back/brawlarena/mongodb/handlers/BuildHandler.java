@@ -226,7 +226,15 @@ public class BuildHandler {
             summary = "Obtener build pendiente para un personaje",
             description = "Devuelve el build pendiente (no validado) del jugador autenticado para el personaje especificado por parámetro.",
             operationId = "getPendingBuild",
-            security = @SecurityRequirement(name = "bearerAuth")
+            security = @SecurityRequirement(name = "bearerAuth"),
+            parameters = {
+                    @Parameter(
+                            name = "characterId",
+                            in = ParameterIn.QUERY,
+                            required = true,
+                            description = "ID del personaje que se desea desbloquear"
+                    )
+            }
     )
     @ApiResponses(
             value = {
@@ -261,11 +269,15 @@ public class BuildHandler {
                 .map(Authentication::getName)
                 .flatMap(playerId -> buildService.getPendingBuild(playerId, characterId)
                         .flatMap(build -> ServerResponse.ok().bodyValue(build))
-                        .doOnError(e -> logger.error("Error al recuperar build pendiente", e))
-                        .onErrorResume(NoPendingBuildException.class, e ->
-                                ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(e.getMessage()))
-                );
+                )
+                .onErrorResume(UserNotFoundException.class, e ->
+                        ServerResponse.status(HttpStatus.UNAUTHORIZED).bodyValue(e.getMessage()))
+                .onErrorResume(NoPendingBuildException.class, e ->
+                        ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(e.getMessage()))
+                .onErrorResume(e -> {
+                    logger.error("Error al recuperar build pendiente", e);
+                    return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                });
     }
-
 
 }

@@ -4,6 +4,7 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.Ch
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.BuildRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.PieceRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,6 +35,9 @@ class CharacterServiceImplTest {
     private BuildRepository buildRepository;
 
     @Mock
+    private PieceRepository pieceRepository;
+
+    @Mock
     private ObjectMapper objectMapper;
 
     @InjectMocks
@@ -50,8 +54,10 @@ class CharacterServiceImplTest {
                 new ArrayList<>(),
                 new ArrayList<>(),
                 "image.png",
-                0
+                0,
+                "test-game.png"
         );
+
     }
 
     // ! Test para getAllCharacters
@@ -178,6 +184,7 @@ class CharacterServiceImplTest {
                 userRepository,
                 buildRepository,
                 buildService,
+                pieceRepository,
                 objectMapper
         );
 

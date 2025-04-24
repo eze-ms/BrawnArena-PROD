@@ -1,9 +1,11 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.handlers;
 
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.CharacterResponse;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.CharacterUpdateRequest;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Piece;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.CharacterService;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.repository.UserRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.security.JwtService;
@@ -15,11 +17,13 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
@@ -66,6 +70,7 @@ public class CharacterHandler {
                 character.getDescription(),
                 character.getDifficulty(),
                 character.getImageUrl(),
+                character.getGameImageUrl(),
                 character.getCost(),
                 character.getPowers(),
                 character.getPieces(),
@@ -314,5 +319,71 @@ public class CharacterHandler {
                 .doOnSubscribe(sub -> logger.info("Solicitud de actualización recibida para personaje {}", characterId))
                 .doOnError(error -> logger.error("Error al actualizar personaje {}: {}", characterId, error.getMessage()));
     }
+
+    @Operation(
+            summary = "Asignar piezas a un personaje",
+            description = "Embebe una lista de piezas existentes al personaje indicado por ID.",
+            operationId = "assignPiecesToCharacter",
+            security = @SecurityRequirement(name = "bearerAuth"),
+            parameters = {
+                    @Parameter(
+                            in = ParameterIn.PATH,
+                            name = "id",
+                            required = true,
+                            description = "ID del personaje a consultar"
+                    )
+
+            },
+            requestBody = @RequestBody(
+                    description = "Lista de IDs de piezas a asignar",
+                    required = true,
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = String.class, type = "array")
+                    )
+            )
+    )
+    @ApiResponses(
+            value = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Piezas asignadas correctamente",
+                            content = @Content(schema = @Schema(implementation = Piece.class))
+                    ),
+                    @ApiResponse(
+                            responseCode = "400",
+                            description = "Lista vacía o error de entrada"
+                    ),
+                    @ApiResponse(
+                            responseCode = "404",
+                            description = "Personaje no encontrado"
+                    ),
+                    @ApiResponse(
+                            responseCode = "500",
+                            description = "Error interno al asignar piezas"
+                    )
+            }
+    )
+    public Mono<ServerResponse> assignPiecesToCharacter(ServerRequest request) {
+        String characterId = request.pathVariable("id");
+        logger.info("Solicitud recibida: asignar piezas al personaje con ID {}", characterId);
+
+        return request.bodyToMono(new ParameterizedTypeReference<List<String>>() {})
+                .flatMap(pieceIds -> characterService.assignPieces(characterId, pieceIds))
+                .flatMap(updated -> ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(updated))
+                .onErrorResume(error -> {
+                    logger.error("Error al asignar piezas: {}", error.getMessage());
+                    if (error instanceof IllegalArgumentException) {
+                        return ServerResponse.badRequest().bodyValue(error.getMessage());
+                    } else if (error instanceof CharacterNotFoundException) {
+                        return ServerResponse.status(404).bodyValue(error.getMessage());
+                    } else {
+                        return ServerResponse.status(500).bodyValue("Error interno al asignar piezas");
+                    }
+                });
+    }
+
 
 }

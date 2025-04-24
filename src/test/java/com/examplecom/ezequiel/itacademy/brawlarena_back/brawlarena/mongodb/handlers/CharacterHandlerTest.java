@@ -72,7 +72,8 @@ class CharacterHandlerTest {
                 new ArrayList<>(),
                 new ArrayList<>(),
                 "test.png",
-                0
+                0,
+                "test-game.png"
         );
     }
 

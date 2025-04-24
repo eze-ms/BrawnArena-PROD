@@ -555,13 +555,11 @@ class BuildHandlerTest {
                 .thenReturn(Optional.of(characterId));
 
         when(buildService.getPendingBuild(playerId, characterId))
-                .thenReturn(Mono.error(new RuntimeException("Fallo interno")));
+                .thenReturn(Mono.error(new RuntimeException("Error inesperado")));
 
         StepVerifier.create(buildHandler.getPendingBuild(request))
-                .expectErrorMatches(error ->
-                        error instanceof RuntimeException &&
-                                error.getMessage().equals("Fallo interno"))
-                .verify();
+                .assertNext(res -> assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, res.statusCode()))
+                .verifyComplete();
     }
 
     @Test
@@ -574,10 +572,8 @@ class BuildHandlerTest {
                 .thenReturn(Mono.empty());
 
         StepVerifier.create(buildHandler.getPendingBuild(request))
-                .expectErrorMatches(error ->
-                        error instanceof UserNotFoundException &&
-                                error.getMessage().contains("Usuario no autenticado"))
-                .verify();
+                .assertNext(res -> assertEquals(HttpStatus.UNAUTHORIZED, res.statusCode()))
+                .verifyComplete();
     }
 
     @Test

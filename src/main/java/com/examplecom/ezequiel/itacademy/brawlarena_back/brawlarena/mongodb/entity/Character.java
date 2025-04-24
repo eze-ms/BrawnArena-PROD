@@ -29,9 +29,9 @@ public class Character {
 
     @JsonDeserialize(contentUsing = PowerDeserializer.class)
     private List<Power> powers;
-//    private boolean unlocked;
     private String imageUrl;
-//    private String playerId;
     private int cost;
+    private String gameImageUrl;
+
 }
 

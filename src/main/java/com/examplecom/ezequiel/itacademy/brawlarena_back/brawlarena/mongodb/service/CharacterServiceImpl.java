@@ -7,6 +7,7 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.BuildRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.PieceRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.repository.UserRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -29,6 +30,8 @@ public class CharacterServiceImpl implements CharacterService {
     private final UserRepository userRepository;
     private final BuildRepository buildRepository;
     private final BuildService buildService;
+    private final PieceRepository pieceRepository;
+
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -38,14 +41,15 @@ public class CharacterServiceImpl implements CharacterService {
                                 UserRepository userRepository,
                                 BuildRepository buildRepository,
                                 BuildService buildService,
+                                PieceRepository pieceRepository,
                                 ObjectMapper objectMapper) {
         this.characterRepository = characterRepository;
         this.userRepository = userRepository;
         this.buildRepository = buildRepository;
         this.buildService = buildService;
+        this.pieceRepository = pieceRepository;
         this.objectMapper = objectMapper;
     }
-
 
 
     @Override
@@ -167,4 +171,20 @@ public class CharacterServiceImpl implements CharacterService {
                 .doOnError(error -> logger.error("Error al actualizar personaje: {}", error.getMessage()));
     }
 
+    public Mono<Character> assignPieces(String characterId, List<String> pieceIds) {
+        if (pieceIds == null || pieceIds.isEmpty()) {
+            return Mono.error(new IllegalArgumentException("Lista de piezas no puede estar vacía"));
+        }
+
+        return characterRepository.findById(characterId)
+                .switchIfEmpty(Mono.error(new CharacterNotFoundException("Personaje no encontrado")))
+                .flatMap(character ->
+                        pieceRepository.findByIdIn(pieceIds)
+                                .collectList()
+                                .flatMap(pieces -> {
+                                    character.setPieces(pieces);
+                                    return characterRepository.save(character);
+                                })
+                );
+    }
 }
