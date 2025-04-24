@@ -136,7 +136,6 @@ public class CharacterHandler {
                 .doOnError(e -> logger.error("Error al recuperar personajes", e));
     }
 
-
     //! Devuelve los personajes que el jugador ha desbloqueado
     @Operation(
             summary = "Desbloquear personaje",

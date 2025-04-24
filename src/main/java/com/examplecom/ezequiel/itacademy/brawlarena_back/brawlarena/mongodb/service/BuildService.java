@@ -10,4 +10,6 @@ public interface BuildService {
     Mono<Build> validateBuild(String playerId, Build buildData);
     Flux<Build> getBuildHistory(String playerId);
     void clearPiecesCache(String characterId);
+    Mono<Build> getPendingBuild(String playerId, String characterId);
+
 }

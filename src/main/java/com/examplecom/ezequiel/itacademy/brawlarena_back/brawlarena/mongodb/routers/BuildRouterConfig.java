@@ -37,6 +37,12 @@ public class BuildRouterConfig {
                     method = RequestMethod.GET,
                     beanClass = BuildHandler.class,
                     beanMethod = "getBuildHistory"
+            ),
+            @RouterOperation(
+                    path = "/builds/pending",
+                    method = RequestMethod.GET,
+                    beanClass = BuildHandler.class,
+                    beanMethod = "getPendingBuild"
             )
     })
 
@@ -45,6 +51,7 @@ public class BuildRouterConfig {
                 .POST("/builds/start", handler::startBuild)
                 .POST("/builds/validate", handler::validateBuild)
                 .GET("/builds/history", handler::getBuildHistory)
+                .GET("/builds/pending", handler::getPendingBuild)
                 .build();
     }
 }

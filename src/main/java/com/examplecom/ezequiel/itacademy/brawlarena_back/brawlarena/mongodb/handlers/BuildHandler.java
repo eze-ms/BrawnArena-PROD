@@ -1,6 +1,9 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.handlers;
 
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.validator.BuildValidator;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.BuildAlreadyExistsException;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterAccessDeniedException;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.NoPendingBuildException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Build;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.BuildService;
@@ -17,8 +20,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
@@ -86,7 +91,15 @@ public class BuildHandler {
                         .flatMap(characterId -> {
                             logger.info("Solicitud recibida para iniciar build con characterId {} por jugador {}", characterId, playerId);
                             return buildService.startBuild(playerId, characterId)
-                                    .flatMap(build -> ServerResponse.ok().bodyValue(build));
+                                    .flatMap(build -> ServerResponse.ok().bodyValue(build))
+                                    .onErrorResume(error -> {
+                                        if (error instanceof BuildAlreadyExistsException) {
+                                            return ServerResponse.status(409).bodyValue(error.getMessage());
+                                        } else if (error instanceof CharacterAccessDeniedException) {
+                                            return ServerResponse.status(403).bodyValue(error.getMessage());
+                                        }
+                                        return Mono.error(error);
+                                    });
                         }))
                 .doOnError(error -> logger.error("Error al iniciar build: {}", error.getMessage()));
     }
@@ -208,5 +221,51 @@ public class BuildHandler {
                 })
                 .doOnError(error -> logger.error("Error al recuperar historial de builds: {}", error.getMessage()));
     }
+
+    @Operation(
+            summary = "Obtener build pendiente para un personaje",
+            description = "Devuelve el build pendiente (no validado) del jugador autenticado para el personaje especificado por parámetro.",
+            operationId = "getPendingBuild",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(
+            value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Build pendiente encontrado."
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Falta el parámetro characterId."
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "No hay build pendiente."
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "Error interno al recuperar el build."
+            )
+    })
+    public Mono<ServerResponse> getPendingBuild(ServerRequest request) {
+        String characterId = request.queryParam("characterId").orElse(null);
+
+        if (!StringUtils.hasText(characterId)) {
+            return ServerResponse.badRequest()
+                    .bodyValue("Falta el parámetro characterId");
+        }
+
+        return request.principal()
+                .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no autenticado")))
+                .cast(Authentication.class)
+                .map(Authentication::getName)
+                .flatMap(playerId -> buildService.getPendingBuild(playerId, characterId)
+                        .flatMap(build -> ServerResponse.ok().bodyValue(build))
+                        .doOnError(e -> logger.error("Error al recuperar build pendiente", e))
+                        .onErrorResume(NoPendingBuildException.class, e ->
+                                ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(e.getMessage()))
+                );
+    }
+
 
 }

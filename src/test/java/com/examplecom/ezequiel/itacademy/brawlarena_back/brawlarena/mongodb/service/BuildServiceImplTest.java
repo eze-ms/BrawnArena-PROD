@@ -20,8 +20,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.Mockito.any;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -116,7 +119,6 @@ class BuildServiceImplTest {
                 .verify();
     }
 
-
     @Test
     void validateBuildData_conPiezasNull_lanzaExcepcion() {
         Build build = new Build();
@@ -204,7 +206,6 @@ class BuildServiceImplTest {
         when(userRepository.findByNickname("player123")).thenReturn(Mono.just(mockUser));
         when(characterRepository.findById("char123")).thenReturn(Mono.just(mockCharacter));
 
-        // ✅ Mock actualizado tras la refactorización
         when(buildRepository.findByPlayerIdAndCharacterIdAndValidFalse("player123", "char123"))
                 .thenReturn(Flux.empty());
 
@@ -375,6 +376,7 @@ class BuildServiceImplTest {
 
     @Test
     void getBuildHistory_FiltraBuildsInvalidos_RetornaSoloValidos() {
+
         Build valido = createTestBuild("player1", "char1", true);
         Build invalido = createTestBuild("player1", "char1", false);
 
@@ -384,6 +386,123 @@ class BuildServiceImplTest {
         StepVerifier.create(buildService.getBuildHistory("player1"))
                 .expectNext(valido)
                 .verifyComplete();
+    }
+
+    @Test
+    void getPendingBuild_conBuildPendienteExistente_retornaBuildCorrecto() {
+
+        String playerId = "player1";
+        String characterId = "char1";
+        Build pendingBuild = createTestBuild(playerId, characterId, false);
+
+        when(buildRepository.findByPlayerIdAndCharacterIdAndValidFalse(playerId, characterId))
+                .thenReturn(Flux.just(pendingBuild));
+
+        StepVerifier.create(buildService.getPendingBuild(playerId, characterId))
+                .expectNextMatches(build ->
+                        build.getPlayerId().equals(playerId) &&
+                                build.getCharacterId().equals(characterId) &&
+                                !build.isValid()
+                )
+                .verifyComplete();
+    }
+
+    @Test
+    void getPendingBuild_sinBuildPendiente_lanzaExcepcion() {
+
+        String playerId = "player1";
+        String characterId = "char1";
+
+        when(buildRepository.findByPlayerIdAndCharacterIdAndValidFalse(playerId, characterId))
+                .thenReturn(Flux.empty());
+
+        StepVerifier.create(buildService.getPendingBuild(playerId, characterId))
+                .expectErrorMatches(ex ->
+                        ex instanceof NoPendingBuildException &&
+                                ex.getMessage().equals("No hay build pendiente para este personaje")
+                )
+                .verify();
+    }
+
+    @Test
+    void getPendingBuild_conMultiplesBuildsPendientes_retornaPrimero() {
+
+        String playerId = "player1";
+        String characterId = "char1";
+        Build build1 = createTestBuild(playerId, characterId, false);
+        Build build2 = createTestBuild(playerId, characterId, false);
+
+        when(buildRepository.findByPlayerIdAndCharacterIdAndValidFalse(playerId, characterId))
+                .thenReturn(Flux.just(build1, build2));
+
+
+        StepVerifier.create(buildService.getPendingBuild(playerId, characterId))
+                .expectNext(build1)
+                .verifyComplete();
+    }
+
+    @Test
+    void getPendingBuild_conBuildValidado_noRetornaBuild() {
+
+        String playerId = "player1";
+        String characterId = "char1";
+        Build validBuild = createTestBuild(playerId, characterId, true);
+
+        when(buildRepository.findByPlayerIdAndCharacterIdAndValidFalse(playerId, characterId))
+                .thenReturn(Flux.empty());
+
+        StepVerifier.create(buildService.getPendingBuild(playerId, characterId))
+                .expectError(NoPendingBuildException.class)
+                .verify();
+    }
+
+    @Test
+    void getPendingBuild_conParametrosInvalidos_lanzaExcepcion() {
+        assertThrows(IllegalArgumentException.class,
+                () -> buildService.getPendingBuild(null, "char1").block());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> buildService.getPendingBuild("", "char1").block());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> buildService.getPendingBuild("player1", null).block());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> buildService.getPendingBuild("player1", "").block());
+    }
+
+    @Test
+    void getPendingBuild_conLlamadasConcurrentes_retornaMismoBuild() {
+
+        String playerId = "player1";
+        String characterId = "char1";
+        Build pendingBuild = createTestBuild(playerId, characterId, false);
+
+        when(buildRepository.findByPlayerIdAndCharacterIdAndValidFalse(playerId, characterId))
+                .thenReturn(Flux.just(pendingBuild).delayElements(Duration.ofMillis(100)));
+
+        Mono<Build> call1 = buildService.getPendingBuild(playerId, characterId);
+        Mono<Build> call2 = buildService.getPendingBuild(playerId, characterId);
+
+        StepVerifier.create(Mono.zip(call1, call2))
+                .assertNext(tuple -> {
+                    assertThat(tuple.getT1()).isSameAs(tuple.getT2());
+                    assertThat(tuple.getT1().isValid()).isFalse();
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void getPendingBuild_conDatosIncorrectos_noRetornaBuild() {
+
+        when(buildRepository.findByPlayerIdAndCharacterIdAndValidFalse("otroPlayer", "otroChar"))
+                .thenReturn(Flux.empty());
+
+        StepVerifier.create(buildService.getPendingBuild("otroPlayer", "otroChar"))
+                .expectErrorMatches(error ->
+                        error instanceof NoPendingBuildException &&
+                                error.getMessage().contains("No hay build pendiente"))
+                .verify();
     }
 }
 

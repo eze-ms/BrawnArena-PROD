@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -101,7 +102,6 @@ public class BuildServiceImpl implements BuildService {
                 }));
     }
 
-
     private EvaluacionPiezas evaluarPiezas(List<String> piezasColocadasIds, List<Piece> piezasCorrectas) {
         List<Piece> piezasColocadas = piezasCorrectas.stream()
                 .filter(p -> piezasColocadasIds.contains(p.getId()))
@@ -135,7 +135,6 @@ public class BuildServiceImpl implements BuildService {
                         saved.getId(), score, duration, errores
                 ));
     }
-
 
     @Override
     public Mono<Build> startBuild(String playerId, String characterId) {
@@ -239,87 +238,6 @@ public class BuildServiceImpl implements BuildService {
                 .doOnError(error -> logger.error("Error durante la validación de build: {}", error.getMessage()));
     }
 
-
-//    @Override
-//    @Transactional
-//    public Mono<Build> validateBuild(String playerId, Build buildData) {
-//        String characterId = buildData.getCharacterId();
-//        List<String> piezasColocadasIds = buildData.getPiecesPlaced();
-//        long duration = buildData.getDuration();
-//
-//        return Mono.zip(
-//                userRepository.findByNickname(playerId)
-//                        .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no encontrado"))),
-//                characterRepository.findById(characterId)
-//                        .switchIfEmpty(Mono.error(new CharacterNotFoundException("Personaje no encontrado")))
-//        ).flatMap(tuple -> {
-//            User user = tuple.getT1();
-//            Character character = tuple.getT2();
-//
-//            List<String> idsDesbloqueados = Optional.ofNullable(user.getCharacterIds())
-//                    .map(ids -> Arrays.stream(ids.replace("[", "").replace("]", "").split(","))
-//                            .map(String::trim)
-//                            .map(id -> id.replace("\"", ""))
-//                            .filter(s -> !s.isBlank())
-//                            .toList())
-//                    .orElse(List.of());
-//
-//            if (!idsDesbloqueados.contains(characterId)) {
-//                return Mono.error(new CharacterAccessDeniedException("No puedes validar un build de un personaje que no has desbloqueado"));
-//            }
-//
-//            List<Piece> piezasCorrectas = piezasCache.computeIfAbsent(characterId, id -> {
-//                List<Piece> piezas = character.getPieces();
-//                if (piezas == null) {
-//                    logger.warn("El personaje {} no tiene piezas asignadas", characterId);
-//                    return List.of();
-//                }
-//                return piezas;
-//            });
-//
-//            return buildRepository.findAll()
-//                    .filter(build -> build.getPlayerId().equals(playerId)
-//                            && build.getCharacterId().equals(characterId)
-//                            && !build.isValid())
-//                    .next()
-//                    .switchIfEmpty(Mono.error(new NoPendingBuildException("No hay un build pendiente para este personaje")))
-//                    .flatMap(buildExistente -> {
-//
-//                        List<Piece> piezasColocadas = piezasCorrectas.stream()
-//                                .filter(p -> piezasColocadasIds.contains(p.getId()))
-//                                .toList();
-//
-//                        long errores = piezasColocadasIds.stream()
-//                                .filter(id -> piezasCorrectas.stream().noneMatch(p -> p.getId().equals(id)))
-//                                .count();
-//
-//                        return buildRepository.countByPlayerIdAndCharacterIdAndValidTrue(playerId, characterId)
-//                                .map(count -> count == 0)
-//                                .flatMap(primeraVezCompletado -> {
-//                                    int score = scoreCalculator.calculateScore(
-//                                            piezasColocadas,
-//                                            piezasCorrectas,
-//                                            (int) errores,
-//                                            duration,
-//                                            primeraVezCompletado
-//                                    );
-//
-//                                    buildExistente.setValid(true);
-//                                    buildExistente.setScore(score);
-//                                    buildExistente.setDuration(duration);
-//                                    buildExistente.setErrors((int) errores);
-//                                    buildExistente.setPiecesPlaced(piezasColocadasIds);
-//
-//                                    return buildRepository.save(buildExistente)
-//                                            .doOnSuccess(saved -> logger.info(
-//                                                    "Build validado: {} | Score: {} | Duration: {}s | Errores: {}",
-//                                                    saved.getId(), score, duration, errores
-//                                            ));
-//                                });
-//                    });
-//        }).doOnError(error -> logger.error("Error durante la validación de build: {}", error.getMessage()));
-//    }
-
     @Override
     public Flux<Build> getBuildHistory(String playerId) {
         return buildRepository.findByPlayerIdAndValidTrueOrderByCreatedAtDesc(playerId)
@@ -332,4 +250,17 @@ public class BuildServiceImpl implements BuildService {
         piezasCache.remove(characterId);
         logger.info("Caché de piezas eliminada para personaje {}", characterId);
     }
+
+    @Override
+    public Mono<Build> getPendingBuild(String playerId, String characterId) {
+        if (!StringUtils.hasText(playerId) || !StringUtils.hasText(characterId)) {
+            throw new IllegalArgumentException("playerId y characterId no pueden ser nulos o vacíos");
+        }
+
+        return buildRepository.findByPlayerIdAndCharacterIdAndValidFalse(playerId, characterId)
+                .next()
+                .switchIfEmpty(Mono.error(new NoPendingBuildException("No hay build pendiente para este personaje")));
+    }
+
+
 }
