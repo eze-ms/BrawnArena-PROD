@@ -11,7 +11,7 @@ public record CharacterResponse(
         String description,
         String difficulty,
         String imageUrl,
-        String gameImageUrl, 
+        String gameImageUrl,
         int cost,
         List<Power> powers,
         List<Piece> pieces,
