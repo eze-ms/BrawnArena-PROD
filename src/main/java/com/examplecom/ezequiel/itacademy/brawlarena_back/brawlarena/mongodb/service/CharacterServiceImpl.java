@@ -51,7 +51,6 @@ public class CharacterServiceImpl implements CharacterService {
         this.objectMapper = objectMapper;
     }
 
-
     @Override
     public Flux<Character> getAllCharacters() {
         return characterRepository.findAll()

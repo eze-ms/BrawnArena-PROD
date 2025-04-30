@@ -1,9 +1,6 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service;
 
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.BuildNotFoundException;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterNotFoundException;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.HighlightedModelNotFoundException;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.*;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.SharedModel;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.BuildRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
@@ -11,6 +8,7 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repo
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -18,13 +16,13 @@ import reactor.core.publisher.Mono;
 import java.time.Instant;
 import java.util.List;
 
+@Service
 public class GalleryServiceImpl implements GalleryService{
-    private static final Logger logger = LoggerFactory.getLogger(CharacterServiceImpl.class);
-    private SharedModelRepository sharedModelRepository;
-    private BuildRepository buildRepository;
-    private UserRepository userRepository;
-    private CharacterRepository characterRepository;
-
+    private static final Logger logger = LoggerFactory.getLogger(GalleryServiceImpl.class);
+    private final SharedModelRepository sharedModelRepository;
+    private final BuildRepository buildRepository;
+    private final UserRepository userRepository;
+    private final CharacterRepository characterRepository;
 
     public GalleryServiceImpl(SharedModelRepository sharedModelRepository, BuildRepository buildRepository, UserRepository userRepository, CharacterRepository characterRepository) {
         this.sharedModelRepository = sharedModelRepository;
@@ -104,6 +102,31 @@ public class GalleryServiceImpl implements GalleryService{
                 .distinct()
                 .doOnComplete(() -> logger.info("Usuarios recuperados correctamente para el personaje {}", characterId))
                 .doOnError(error -> logger.error("Error al recuperar usuarios del personaje {}: {}", characterId, error.getMessage()));
+    }
+
+    @Override
+    public Mono<SharedModel> highlightModel(String sharedModelId) {
+        if (!StringUtils.hasText(sharedModelId)) {
+            return Mono.error(new IllegalArgumentException("sharedModelId no puede estar vacío"));
+        }
+
+        return sharedModelRepository.findById(sharedModelId)
+                .switchIfEmpty(Mono.error(new ModelNotFoundException("Modelo compartido no encontrado")))
+                .flatMap(model -> {
+                    Mono<Void> desmarcarTodos = sharedModelRepository.findByHighlightedTrue()
+                            .flatMap(existing -> {
+                                existing.setHighlighted(false);
+                                return sharedModelRepository.save(existing);
+                            })
+                            .then();
+
+                    model.setHighlighted(true);
+                    Mono<SharedModel> guardarNuevo = sharedModelRepository.save(model);
+
+                    return desmarcarTodos.then(guardarNuevo);
+                })
+                .doOnSuccess(updated -> logger.info("Modelo destacado correctamente: {}", updated.getId()))
+                .doOnError(error -> logger.error("Error al destacar modelo: {}", error.getMessage()));
     }
 
 }

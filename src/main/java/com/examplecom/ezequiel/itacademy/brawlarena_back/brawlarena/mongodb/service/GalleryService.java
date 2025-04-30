@@ -9,4 +9,6 @@ public interface GalleryService {
     Flux<SharedModel> getPublicGallery();
     Mono<SharedModel> getHighlightedModel();
     Flux<String> getSharedUsersByCharacter(String characterId);
+    Mono<SharedModel> highlightModel(String sharedModelId);
+
 }

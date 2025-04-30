@@ -10,6 +10,6 @@ public interface BuildRepository extends ReactiveMongoRepository<Build, String> 
     Mono<Long> countByPlayerIdAndCharacterIdAndValidTrue(String playerId, String characterId);
     Flux<Build> findByPlayerIdAndValidTrueOrderByCreatedAtDesc(String playerId);
     Flux<Build> findByPlayerIdAndCharacterIdAndValidFalse(String playerId, String characterId);
-    Flux<Build> findByPlayerIdAndCharacterIdAndValidTrue(String playerId, String characterId); // nuevo
+    Flux<Build> findByPlayerIdAndCharacterIdAndValidTrue(String playerId, String characterId);
 
 }

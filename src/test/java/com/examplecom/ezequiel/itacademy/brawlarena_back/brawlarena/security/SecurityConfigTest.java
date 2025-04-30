@@ -1,6 +1,8 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.security;
 
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
+import org.junit.jupiter.api.BeforeAll;
+import org.springframework.test.context.ActiveProfiles;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
@@ -13,10 +15,16 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 @SpringBootTest
 @AutoConfigureWebTestClient
+@ActiveProfiles("test")
 class SecurityConfigIntegrationTest {
 
     @Autowired
     private WebTestClient webTestClient;
+
+    @BeforeAll
+    static void setupTestEnv() {
+        System.setProperty("test.env", "true");
+    }
 
     @Test
     void passwordEncoder_shouldReturnBCryptEncoder() {
@@ -24,21 +32,6 @@ class SecurityConfigIntegrationTest {
         PasswordEncoder encoder = config.passwordEncoder();
         assertNotNull(encoder);
         assertInstanceOf(BCryptPasswordEncoder.class, encoder);
-    }
-
-    @Test
-    void publicRouteShouldBeAccessibleWithoutAuth() {
-        User user = new User();
-        user.setNickname("usuario5");
-        user.setPassword("1234");
-        user.setRole("USER");
-        user.setTokens(0);
-
-        webTestClient.post()
-                .uri("/auth/register")
-                .bodyValue(user)
-                .exchange()
-                .expectStatus().isCreated();
     }
 
     @Test

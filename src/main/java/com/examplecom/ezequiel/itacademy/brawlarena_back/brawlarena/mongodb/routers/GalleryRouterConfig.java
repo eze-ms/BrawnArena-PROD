@@ -40,7 +40,14 @@ public class GalleryRouterConfig {
                     method = RequestMethod.GET,
                     beanClass = GalleryHandler.class,
                     beanMethod = "getSharedUsersByCharacter"
+            ),
+            @RouterOperation(
+                    path = "/gallery/highlighted",
+                    method = RequestMethod.PUT,
+                    beanClass = GalleryHandler.class,
+                    beanMethod = "highlightModel"
             )
+
     })
     public RouterFunction<ServerResponse> galleryRoutes(GalleryHandler galleryHandler) {
         return RouterFunctions.route()
@@ -48,6 +55,7 @@ public class GalleryRouterConfig {
                 .POST("/gallery/share", galleryHandler::shareModel)
                 .GET("/gallery/highlighted", galleryHandler::getHighlightedModel)
                 .GET("/gallery/character/{characterId}", galleryHandler::getSharedUsersByCharacter)
+                .PUT("/gallery/highlighted", galleryHandler::highlightModel)
                 .build();
     }
 }

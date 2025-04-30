@@ -2,6 +2,7 @@ package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.han
 
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.BuildNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.HighlightedModelNotFoundException;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.ModelNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.SharedModel;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.GalleryService;
@@ -20,14 +21,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
+@Component
 public class GalleryHandler {
 
-    private static final Logger logger = LoggerFactory.getLogger(SharedModel.class);
+    private static final Logger logger = LoggerFactory.getLogger(GalleryHandler.class);
     private final GalleryService galleryService;
 
     public GalleryHandler(GalleryService galleryService) {
@@ -109,13 +112,17 @@ public class GalleryHandler {
                 .map(Authentication::getName)
                 .flatMap(playerId ->
                         request.bodyToMono(String.class)
+                                .filter(StringUtils::hasText)
+                                .switchIfEmpty(Mono.error(new IllegalArgumentException("characterId no puede estar vacío")))
                                 .flatMap(characterId -> {
                                     logger.info("Solicitud para compartir modelo: playerId={}, characterId={}", playerId, characterId);
-                                    return galleryService.shareModel(playerId, characterId)
-                                            .doOnSuccess(shared -> logger.info("Modelo compartido exitosamente por {}", playerId))
-                                            .flatMap(shared -> ServerResponse.ok().bodyValue(shared));
+                                    return galleryService.shareModel(playerId, characterId);
                                 })
                 )
+                .flatMap(shared -> {
+                    logger.info("Modelo compartido exitosamente");
+                    return ServerResponse.ok().bodyValue(shared);
+                })
                 .onErrorResume(UserNotFoundException.class, e ->
                         ServerResponse.status(HttpStatus.UNAUTHORIZED).bodyValue(e.getMessage()))
                 .onErrorResume(BuildNotFoundException.class, e ->
@@ -211,6 +218,56 @@ public class GalleryHandler {
                 .flatMap(list -> ServerResponse.ok().bodyValue(list))
                 .onErrorResume(e -> {
                     logger.error("Error al obtener usuarios por personaje: {}", e.getMessage());
+                    return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).bodyValue("Error interno");
+                });
+    }
+
+    @Operation(
+            summary = "Destacar un modelo compartido",
+            description = "Permite al ADMIN marcar un modelo como Jugador de la Semana. Solo accesible con rol ADMIN.",
+            operationId = "highlightModel",
+            requestBody = @RequestBody(
+                    required = true,
+                    description = "ID del modelo compartido a destacar",
+                    content = @Content(schema = @Schema(type = "string"), examples = {
+                            @ExampleObject(value = "68126f1f65068f20b327d42f")
+                    })
+            )
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Modelo destacado correctamente"
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "ID inválido"
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Modelo no encontrado"
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "Error interno al destacar el modelo"
+            )
+    })
+    public Mono<ServerResponse> highlightModel(ServerRequest request) {
+        return request.bodyToMono(String.class)
+                .filter(StringUtils::hasText)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("El ID del modelo no puede estar vacío")))
+                .doOnNext(id -> logger.info("Solicitud para destacar modelo: sharedModelId={}", id))
+                .flatMap(galleryService::highlightModel)
+                .flatMap(updated -> {
+                    logger.info("Modelo destacado correctamente: {}", updated.getId());
+                    return ServerResponse.ok().bodyValue(updated);
+                })
+                .onErrorResume(ModelNotFoundException.class, e ->
+                        ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(e.getMessage()))
+                .onErrorResume(IllegalArgumentException.class, e ->
+                        ServerResponse.badRequest().bodyValue(e.getMessage()))
+                .onErrorResume(e -> {
+                    logger.error("Error inesperado al destacar modelo: {}", e.getMessage());
                     return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).bodyValue("Error interno");
                 });
     }

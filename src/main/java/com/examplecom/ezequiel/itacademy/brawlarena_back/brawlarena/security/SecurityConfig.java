@@ -47,10 +47,20 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
                                 "/webjars/**",
-                                "/v3/api-docs/**"
+                                "/v3/api-docs/**",
+                                "/gallery",
+                                "/gallery/highlighted"
                         ).permitAll()
-                        .pathMatchers("/users/**", "/characters/**","/builds/**", "/gallery/**", "/powers/**").authenticated()
+                        .pathMatchers(
+                                "/gallery/share",
+                                "/gallery/character/**",
+                                "/users/**",
+                                "/characters/**",
+                                "/builds/**",
+                                "/powers/**"
+                        ).authenticated()
                 )
+
 
                 .securityContextRepository(jwtSecurityContextRepository)
                 .build();
