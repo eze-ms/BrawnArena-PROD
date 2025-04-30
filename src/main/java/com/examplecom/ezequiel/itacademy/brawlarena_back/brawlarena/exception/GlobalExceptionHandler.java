@@ -10,9 +10,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<ErrorMessage> handleUserNotFoundExcepction(UserNotFoundException ex) {
         ErrorMessage error = new ErrorMessage(HttpStatus.NOT_FOUND, ex.getMessage());
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(error);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
 
     @ExceptionHandler(NicknameAlreadyExistsException.class)
@@ -51,5 +49,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
+    @ExceptionHandler(BuildNotFoundException.class)
+    public ResponseEntity<ErrorMessage> handleBuildNotFoundException(BuildNotFoundException ex) {
+        ErrorMessage error = new ErrorMessage(HttpStatus.NOT_FOUND, ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
 
+    @ExceptionHandler(HighlightedModelNotFoundException.class)
+    public ResponseEntity<ErrorMessage> handleHighlightedModelNotFoundException(HighlightedModelNotFoundException ex) {
+        ErrorMessage error = new ErrorMessage(HttpStatus.NOT_FOUND, ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
 }

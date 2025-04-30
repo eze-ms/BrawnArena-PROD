@@ -211,8 +211,11 @@ public class BuildServiceImpl implements BuildService {
                             logger.warn("El personaje {} no tiene piezas asignadas", characterId);
                             return List.of();
                         }
-                        return piezas;
+                        return piezas.stream()
+                                .filter(p -> !p.isFake())
+                                .toList();
                     });
+
 
                     return obtenerBuildPendiente(playerId, characterId)
                             .flatMap(buildExistente -> {
@@ -235,7 +238,11 @@ public class BuildServiceImpl implements BuildService {
                                         );
                             });
                 })
-                .doOnError(error -> logger.error("Error durante la validación de build: {}", error.getMessage()));
+                .doOnError(error -> {
+                    logger.error("Error durante la validación de build: {}", error.getMessage());
+                    clearPiecesCache(buildData.getCharacterId());
+                });
+
     }
 
     @Override
