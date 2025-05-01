@@ -122,16 +122,6 @@ public class GalleryHandler {
                 .flatMap(shared -> {
                     logger.info("Modelo compartido exitosamente");
                     return ServerResponse.ok().bodyValue(shared);
-                })
-                .onErrorResume(UserNotFoundException.class, e ->
-                        ServerResponse.status(HttpStatus.UNAUTHORIZED).bodyValue(e.getMessage()))
-                .onErrorResume(BuildNotFoundException.class, e ->
-                        ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(e.getMessage()))
-                .onErrorResume(IllegalArgumentException.class, e ->
-                        ServerResponse.badRequest().bodyValue(e.getMessage()))
-                .onErrorResume(e -> {
-                    logger.error("Error inesperado al compartir modelo: {}", e.getMessage());
-                    return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).bodyValue("Error interno");
                 });
     }
 
@@ -156,18 +146,14 @@ public class GalleryHandler {
             )
     })
     public Mono<ServerResponse> getHighlightedModel(ServerRequest request) {
-        logger.info("Solicitud recibida: obtener modelo destacado");
-
         return galleryService.getHighlightedModel()
-                .doOnSuccess(model -> logger.info("Modelo destacado encontrado: playerId={}, characterId={}", model.getPlayerId(), model.getCharacterId()))
-                .flatMap(model -> ServerResponse.ok().bodyValue(model))
-                .onErrorResume(HighlightedModelNotFoundException.class, e ->
-                        ServerResponse.status(HttpStatus.NOT_FOUND).bodyValue(e.getMessage()))
-                .onErrorResume(e -> {
-                    logger.error("Error al obtener modelo destacado: {}", e.getMessage());
-                    return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).bodyValue("Error interno");
+                .switchIfEmpty(Mono.error(new ModelNotFoundException("No hay jugador destacado actualmente"))) // Lanzar error si no se encuentra el modelo destacado
+                .flatMap(model -> {
+                    logger.info("Modelo destacado encontrado: playerId={}, characterId={}", model.getPlayerId(), model.getCharacterId());
+                    return ServerResponse.ok().bodyValue(model);
                 });
     }
+
 
     @Operation(
             summary = "Obtener usuarios que compartieron un personaje",

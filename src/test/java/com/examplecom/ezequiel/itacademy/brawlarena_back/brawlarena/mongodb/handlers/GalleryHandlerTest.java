@@ -3,6 +3,7 @@ package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.han
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.BuildNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.HighlightedModelNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.ModelNotFoundException;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.SharedModel;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.GalleryService;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,8 @@ import org.springframework.web.reactive.function.server.ServerRequest;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import reactor.core.publisher.Flux;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+
 
 import java.util.List;
 
@@ -176,40 +179,34 @@ class GalleryHandlerTest {
                 .thenAnswer(inv -> Mono.just(auth));
 
         when(request.bodyToMono(String.class))
-                .thenReturn(Mono.just("")); // ahora el filtro detecta vacío o solo espacios
+                .thenReturn(Mono.just("")); // Simula un characterId vacío
 
+        // Verificamos que el error lanzado es IllegalArgumentException y que contiene el mensaje adecuado
         StepVerifier.create(galleryHandler.shareModel(request))
-                .assertNext(response -> {
-                    assertEquals(HttpStatus.BAD_REQUEST, response.statusCode());
-
-                    Object body = ((EntityResponse<?>) response).entity();
-                    assertInstanceOf(String.class, body);
-                    assertTrue(((String) body).contains("characterId no puede estar vacío"));
-                })
-                .verifyComplete();
+                .expectErrorMatches(throwable ->
+                        throwable instanceof IllegalArgumentException &&
+                                throwable.getMessage().contains("characterId no puede estar vacío")) // Verifica el mensaje de error
+                .verify();
     }
 
     @Test
     void shareModel_MissingAuthentication_ReturnsUnauthorized() {
+        // Simulamos que el principal (usuario autenticado) no está presente
         when(request.principal())
-                .thenReturn(Mono.empty());
+                .thenReturn(Mono.empty()); // Esto simula que no hay autenticación
 
+        // Verificamos que la respuesta sea UNAUTHORIZED (401)
         StepVerifier.create(galleryHandler.shareModel(request))
-                .assertNext(response -> {
-                    assertEquals(HttpStatus.UNAUTHORIZED, response.statusCode());
-
-                    Object body = ((EntityResponse<?>) response).entity();
-                    assertInstanceOf(String.class, body);
-                    assertTrue(((String) body).contains("Autenticación requerida"));
-                })
-                .verifyComplete();
+                .expectErrorMatches(throwable ->
+                        throwable instanceof UserNotFoundException &&
+                                throwable.getMessage().contains("Autenticación requerida")) // Verifica el mensaje de error
+                .verify();
     }
 
     @Test
     void shareModel_BuildNotFound_ReturnsNotFound() {
         String playerId = "player123";
-        String characterId = "char456";
-
+        String characterId = "character456";
         Authentication auth = new UsernamePasswordAuthenticationToken(playerId, "");
 
         when(request.principal())
@@ -219,24 +216,20 @@ class GalleryHandlerTest {
                 .thenReturn(Mono.just(characterId));
 
         when(galleryService.shareModel(playerId, characterId))
-                .thenReturn(Mono.error(new BuildNotFoundException("No se encontró build válido")));
+                .thenReturn(Mono.error(new BuildNotFoundException("Build válido no encontrado")));
+
 
         StepVerifier.create(galleryHandler.shareModel(request))
-                .assertNext(response -> {
-                    assertEquals(HttpStatus.NOT_FOUND, response.statusCode());
-
-                    Object body = ((EntityResponse<?>) response).entity();
-                    assertInstanceOf(String.class, body);
-                    assertTrue(((String) body).contains("build válido"));
-                })
-                .verifyComplete();
+                .expectErrorMatches(throwable ->
+                        throwable instanceof BuildNotFoundException &&
+                                throwable.getMessage().contains("Build válido no encontrado"))
+                .verify();
     }
 
     @Test
     void shareModel_UnexpectedError_ReturnsInternalServerError() {
         String playerId = "player123";
-        String characterId = "char456";
-
+        String characterId = "character456";
         Authentication auth = new UsernamePasswordAuthenticationToken(playerId, "");
 
         when(request.principal())
@@ -246,17 +239,14 @@ class GalleryHandlerTest {
                 .thenReturn(Mono.just(characterId));
 
         when(galleryService.shareModel(playerId, characterId))
-                .thenReturn(Mono.error(new RuntimeException("Error inesperado")));
+                .thenReturn(Mono.error(new RuntimeException("Error inesperado al procesar la solicitud")));
+
 
         StepVerifier.create(galleryHandler.shareModel(request))
-                .assertNext(response -> {
-                    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode());
-
-                    Object body = ((EntityResponse<?>) response).entity();
-                    assertInstanceOf(String.class, body);
-                    assertEquals("Error interno", body);
-                })
-                .verifyComplete();
+                .expectErrorMatches(throwable ->
+                        throwable instanceof RuntimeException &&
+                                throwable.getMessage().contains("Error inesperado al procesar la solicitud"))
+                .verify();
     }
 
     @Test
@@ -286,36 +276,30 @@ class GalleryHandlerTest {
 
     @Test
     void getHighlightedModel_NotFound_ReturnsNotFound() {
+        // Simulamos que el servicio no devuelve ningún modelo destacado
         when(galleryService.getHighlightedModel())
-                .thenReturn(Mono.error(new HighlightedModelNotFoundException("No hay modelo destacado")));
+                .thenReturn(Mono.empty()); // Simula un caso donde no se encuentra el modelo destacado
 
+        // Verificamos que la respuesta sea NOT_FOUND (404)
         StepVerifier.create(galleryHandler.getHighlightedModel(request))
-                .assertNext(response -> {
-                    assertEquals(HttpStatus.NOT_FOUND, response.statusCode());
-
-                    Object body = ((EntityResponse<?>) response).entity();
-                    assertInstanceOf(String.class, body);
-                    assertTrue(((String) body).contains("modelo destacado"));
-                })
-                .verifyComplete();
+                .expectErrorMatches(throwable ->
+                        throwable instanceof ModelNotFoundException &&
+                                throwable.getMessage().contains("No hay jugador destacado actualmente")) // Verifica el mensaje de error
+                .verify();
     }
 
     @Test
     void getHighlightedModel_UnexpectedError_ReturnsInternalServerError() {
         when(galleryService.getHighlightedModel())
-                .thenReturn(Mono.error(new RuntimeException("Error inesperado")));
+                .thenReturn(Mono.error(new RuntimeException("Error inesperado al procesar la solicitud")));
 
         StepVerifier.create(galleryHandler.getHighlightedModel(request))
-                .assertNext(response -> {
-                    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode());
-
-                    Object body = ((EntityResponse<?>) response).entity();
-                    assertInstanceOf(String.class, body);
-                    assertEquals("Error interno", body);
-                })
-                .verifyComplete();
+                .expectErrorMatches(throwable ->
+                        throwable instanceof RuntimeException &&
+                                throwable.getMessage().contains("Error inesperado al procesar la solicitud")) // Verifica el mensaje de error
+                .verify();
     }
-
+    
     @Test
     void getSharedUsersByCharacter_MissingCharacterId_ReturnsBadRequest() {
         when(request.pathVariable("characterId"))
@@ -439,7 +423,7 @@ class GalleryHandlerTest {
     @Test
     void highlightModel_EmptyBody_ReturnsBadRequest() {
         when(request.bodyToMono(String.class))
-                .thenReturn(Mono.just("")); // cuerpo vacío
+                .thenReturn(Mono.just(""));
 
         StepVerifier.create(galleryHandler.highlightModel(request))
                 .assertNext(response -> {

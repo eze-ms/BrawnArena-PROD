@@ -46,7 +46,13 @@ public class GalleryRouterConfig {
                     method = RequestMethod.PUT,
                     beanClass = GalleryHandler.class,
                     beanMethod = "highlightModel"
-            )
+            ),
+            @RouterOperation(
+                    path = "/gallery/{sharedModelId}",
+                    method = RequestMethod.DELETE,
+                    beanClass = GalleryHandler.class,
+                    beanMethod = "deleteSharedModel"
+            ),
 
     })
     public RouterFunction<ServerResponse> galleryRoutes(GalleryHandler galleryHandler) {
@@ -56,6 +62,7 @@ public class GalleryRouterConfig {
                 .GET("/gallery/highlighted", galleryHandler::getHighlightedModel)
                 .GET("/gallery/character/{characterId}", galleryHandler::getSharedUsersByCharacter)
                 .PUT("/gallery/highlighted", galleryHandler::highlightModel)
+//                .DELETE("/gallery/{sharedModelId}", galleryHandler::deleteSharedModel)
                 .build();
     }
 }

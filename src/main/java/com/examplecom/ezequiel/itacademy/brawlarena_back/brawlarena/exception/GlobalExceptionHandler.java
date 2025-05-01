@@ -66,4 +66,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ErrorMessage error = new ErrorMessage(HttpStatus.NOT_FOUND, ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorMessage> handleAccessDeniedException(AccessDeniedException ex) {
+        ErrorMessage error = new ErrorMessage(HttpStatus.FORBIDDEN, ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+    }
 }

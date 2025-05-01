@@ -10,5 +10,5 @@ public interface GalleryService {
     Mono<SharedModel> getHighlightedModel();
     Flux<String> getSharedUsersByCharacter(String characterId);
     Mono<SharedModel> highlightModel(String sharedModelId);
-
+    Mono<Void> deleteSharedModel(String sharedModelId, String requesterId, String role);
 }

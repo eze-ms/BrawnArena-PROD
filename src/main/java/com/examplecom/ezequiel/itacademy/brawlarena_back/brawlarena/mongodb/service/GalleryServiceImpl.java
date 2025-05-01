@@ -129,4 +129,22 @@ public class GalleryServiceImpl implements GalleryService{
                 .doOnError(error -> logger.error("Error al destacar modelo: {}", error.getMessage()));
     }
 
+    @Override
+    public Mono<Void> deleteSharedModel(String sharedModelId, String requesterId, String role) {
+        if (!StringUtils.hasText(sharedModelId) || !StringUtils.hasText(requesterId)) {
+            return Mono.error(new IllegalArgumentException("Parámetros inválidos"));
+        }
+
+        return sharedModelRepository.findById(sharedModelId)
+                .switchIfEmpty(Mono.error(new ModelNotFoundException("Modelo compartido no encontrado: " + sharedModelId)))
+                .flatMap(model -> {
+            if (!model.getPlayerId().equals(requesterId) && !"ADMIN".equalsIgnoreCase(role)) {
+                return Mono.error(new AccessDeniedException("No tienes permiso para eliminar este modelo"));
+
+            }
+            return sharedModelRepository.delete(model) // Alternativa a deleteById
+                    .doOnSuccess(v -> logger.info("Modelo {} eliminado por {}(Role={})", sharedModelId, requesterId, role));
+        });
+    }
+
 }
