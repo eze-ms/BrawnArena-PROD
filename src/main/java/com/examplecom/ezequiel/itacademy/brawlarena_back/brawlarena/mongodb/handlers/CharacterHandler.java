@@ -4,8 +4,10 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.Ch
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.CharacterResponse;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.CharacterUpdateRequest;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.PieceAssignmentDTO;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Piece;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.PieceRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.CharacterService;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.repository.UserRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.security.JwtService;
@@ -21,12 +23,15 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Flux;
@@ -46,18 +51,21 @@ public class CharacterHandler {
     private final CharacterService characterService;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final PieceRepository pieceRepository;
 
 
     public CharacterHandler(
             CharacterService characterService,
             JwtService jwtService,
             UserRepository userRepository,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            PieceRepository pieceRepository
     ) {
         this.characterService = characterService;
         this.jwtService = jwtService;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
+        this.pieceRepository = pieceRepository;
     }
 
 
@@ -378,6 +386,75 @@ public class CharacterHandler {
                         return ServerResponse.status(500).bodyValue("Error interno al asignar piezas");
                     }
                 });
+    }
+
+    @Operation(
+            summary = "Asignar piezas con poderes a un personaje",
+            description = "Asocia una lista de piezas a un personaje, cada una con su poder correspondiente.",
+            operationId = "assignPiecesWithPowers",
+            security = @SecurityRequirement(name = "bearerAuth"),
+            parameters = {
+                    @Parameter(
+                            in = ParameterIn.PATH,
+                            name = "id",
+                            required = true,
+                            description = "ID del personaje"
+                    )
+            },
+            requestBody = @RequestBody(
+                    required = true,
+                    description = "Lista de piezas con poderes",
+                    content = @Content(
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = PieceAssignmentDTO.class))
+                    )
+            )
+
+    )
+    public Mono<ServerResponse> assignPiecesWithPowers(ServerRequest request) {
+        String characterId = request.pathVariable("id");
+
+        if (!StringUtils.hasText(characterId)) {
+            return ServerResponse.badRequest().bodyValue("El characterId no puede estar vacío");
+        }
+
+        return request.bodyToFlux(PieceAssignmentDTO.class)
+                .doOnNext(dto -> {
+                    if (!StringUtils.hasText(dto.getPieceId())) {
+                        throw new IllegalArgumentException("Cada pieceId debe ser válido y no estar vacío");
+                    }
+                    if (dto.getPower() == null) {
+                        throw new IllegalArgumentException("Cada pieza debe tener un poder asignado");
+                    }
+                })
+                .collectList()
+                .flatMap(assignments -> {
+                    List<String> pieceIds = assignments.stream()
+                            .map(PieceAssignmentDTO::getPieceId)
+                            .toList();
+
+                    return pieceRepository.findByIdIn(pieceIds)
+                            .collectList()
+                            .flatMap(piezas -> {
+                                if (piezas.size() != assignments.size()) {
+                                    return ServerResponse.badRequest().bodyValue("Una o más piezas no existen en la base de datos");
+                                }
+
+                                // Asociar poderes
+                                for (Piece piece : piezas) {
+                                    assignments.stream()
+                                            .filter(dto -> dto.getPieceId().equals(piece.getId()))
+                                            .findFirst()
+                                            .ifPresent(dto -> piece.setPower(dto.getPower()));
+                                }
+
+                                return characterService.assignPiecesWithPowers(characterId, piezas)
+                                        .flatMap(updated -> ServerResponse.ok().bodyValue(updated));
+                            });
+                })
+                .onErrorResume(IllegalArgumentException.class, e ->
+                        ServerResponse.badRequest().bodyValue(e.getMessage()))
+                .doOnError(error -> logger.error("Error al asignar piezas con poderes: {}", error.getMessage()));
     }
 
 }

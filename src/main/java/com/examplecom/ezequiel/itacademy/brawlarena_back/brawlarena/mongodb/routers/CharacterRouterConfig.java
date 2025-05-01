@@ -57,18 +57,25 @@ public class CharacterRouterConfig {
                     method = RequestMethod.POST,
                     beanClass = CharacterHandler.class,
                     beanMethod = "assignPiecesToCharacter"
-            )
+            ),
+            @RouterOperation(
+                    path = "/characters/{id}/pieces-with-powers",
+                    method = RequestMethod.POST,
+                    beanClass = CharacterHandler.class,
+                    beanMethod = "assignPiecesWithPowers"
+            ),
 
     })
 
-    public RouterFunction<ServerResponse> characterRoutes(CharacterHandler handler) {
+    public RouterFunction<ServerResponse> characterRoutes(CharacterHandler characterHandler) {
         return route()
-                .GET("/characters/all", handler::getAllCharacters)
-                .GET("/characters/unlocked", handler::getCharacterId)
-                .POST("/characters/unlock", handler::unlockCharacter)
-                .GET("/characters/{id}", handler::getCharacterDetail)
-                .PUT("/characters/{id}", handler::updateCharacter)
-                .POST("/characters/{id}/pieces", handler::assignPiecesToCharacter)
+                .GET("/characters/all", characterHandler::getAllCharacters)
+                .GET("/characters/unlocked", characterHandler::getCharacterId)
+                .POST("/characters/unlock", characterHandler::unlockCharacter)
+                .GET("/characters/{id}", characterHandler::getCharacterDetail)
+                .PUT("/characters/{id}", characterHandler::updateCharacter)
+                .POST("/characters/{id}/pieces", characterHandler::assignPiecesToCharacter)
+                .POST("/characters/{id}/pieces-with-powers", characterHandler::assignPiecesWithPowers)
                 .build();
     }
 }

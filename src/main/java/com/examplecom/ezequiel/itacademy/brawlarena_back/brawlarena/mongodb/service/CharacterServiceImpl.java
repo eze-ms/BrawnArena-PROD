@@ -5,6 +5,7 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.In
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.CharacterUpdateRequest;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Piece;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.BuildRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.PieceRepository;
@@ -186,4 +187,26 @@ public class CharacterServiceImpl implements CharacterService {
                                 })
                 );
     }
+
+    @Override
+    public Mono<Character> assignPiecesWithPowers(String characterId, List<Piece> pieces) {
+        if (!StringUtils.hasText(characterId)) {
+            return Mono.error(new IllegalArgumentException("characterId no puede estar vacío"));
+        }
+
+        if (pieces == null || pieces.isEmpty()) {
+            return Mono.error(new IllegalArgumentException("La lista de piezas no puede estar vacía"));
+        }
+
+        return characterRepository.findById(characterId)
+                .switchIfEmpty(Mono.error(new CharacterNotFoundException("Personaje no encontrado")))
+                .flatMap(character -> {
+                    character.setPieces(pieces);
+                    buildService.clearPiecesCache(characterId);
+                    return characterRepository.save(character);
+                })
+                .doOnSuccess(updated -> logger.info("Piezas asignadas con poderes al personaje {}", updated.getId()))
+                .doOnError(error -> logger.error("Error al asignar piezas con poderes: {}", error.getMessage()));
+    }
+
 }

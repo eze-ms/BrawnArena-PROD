@@ -17,35 +17,40 @@ public enum Power {
     CONCENTRACION_ZEN,
     COMBO_KICKS,
 
+    //!* Errant
+    AMMO_RUSH,
+    POSTURA_IMPARABLE,
+    GOLPE_DE_AUTORIDAD,
+
     //!* Fishblade
     DOUBLE_KATANA,
     CORTE_TSUNAMI,
     SILENCIO_DEL_KOI,
-
-    //!* Grunak
-    GARROTE_MAGICO,
-    GOLPE_DE_TIERRA,
-    LLAMA_RITUAL,
 
     //!* Gritshot
     EXPLOSIVE_SHOT,
     SHOT_CANON,
     DINAMITE_EGG,
 
-    //!* Errant
-    AMMO_RUSH,
-    POSTURA_IMPARABLE,
-    GOLPE_DE_AUTORIDAD,
-
     //!* Furia
     PATADA_AEREA,
     VUELO_TORNADO,
     LLAVE_IMPOSIBLE,
 
+    //!* Grunak
+    GARROTE_MAGICO,
+    GOLPE_DE_TIERRA,
+    LLAMA_RITUAL,
+
     //!* Lucy
     DESTRUCTIVE_GUITAR,
     RIFF_SISMICO,
     FEEDBACK_INFERNAL,
+
+    //!* Raidon
+    DISPARO_EXPLOSIVO,
+    TELETRANSPORTE_CORTO,
+    INTERFERENCIA_NEURAL,
 
     //!* Bearzerker
     EXPLOSION_DE_RABIA,
@@ -60,12 +65,8 @@ public enum Power {
     //!* Luffy
     SNAKEWOOD_SLASH,
     AIR_JUMP,
-    SUPERMUSCULADO,
+    SUPERMUSCULADO
 
-    //!* Raidon
-    DISPARO_EXPLOSIVO,
-    TELETRANSPORTE_CORTO,
-    INTERFERENCIA_NEURAL
 }
 
 

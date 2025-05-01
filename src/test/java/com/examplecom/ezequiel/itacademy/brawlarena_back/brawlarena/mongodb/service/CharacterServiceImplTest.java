@@ -2,6 +2,7 @@ package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.ser
 
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Piece;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.BuildRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.PieceRepository;
@@ -17,10 +18,12 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import java.util.ArrayList;
+import java.util.List;
+
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CharacterServiceImplTest {
@@ -275,4 +278,154 @@ class CharacterServiceImplTest {
                 .expectError(RuntimeException.class)
                 .verify();
     }
+
+    @Test
+    void assignPiecesWithPowers_conCharacterIdNuloOVacio_lanzaIllegalArgumentException() {
+        List<Piece> piezas = List.of(new Piece());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> characterService.assignPiecesWithPowers(null, piezas).block());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> characterService.assignPiecesWithPowers("", piezas).block());
+    }
+
+    @Test
+    void assignPiecesWithPowers_conListaDePiezasNula_lanzaIllegalArgumentException() {
+        String characterId = "char1";
+
+        assertThrows(IllegalArgumentException.class,
+                () -> characterService.assignPiecesWithPowers(characterId, null).block());
+    }
+
+    @Test
+    void assignPiecesWithPowers_conListaDePiezasVacia_lanzaIllegalArgumentException() {
+        String characterId = "char1";
+
+        assertThrows(IllegalArgumentException.class,
+                () -> characterService.assignPiecesWithPowers(characterId, List.of()).block());
+    }
+
+    @Test
+    void assignPiecesWithPowers_personajeNoExiste_lanzaCharacterNotFoundException() {
+        String characterId = "charInexistente";
+        List<Piece> piezas = List.of(new Piece());
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(characterService.assignPiecesWithPowers(characterId, piezas))
+                .expectErrorMatches(error ->
+                        error instanceof CharacterNotFoundException &&
+                                error.getMessage().contains("Personaje no encontrado"))
+                .verify();
+    }
+
+    @Test
+    void assignPiecesWithPowers_asignacionExitosa_retornaPersonajeActualizado() {
+        String characterId = "char1";
+        Piece pieza1 = new Piece();
+        pieza1.setId("pieza1");
+
+        List<Piece> piezas = List.of(pieza1);
+
+        Character mockCharacter = new Character();
+        mockCharacter.setId(characterId);
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(mockCharacter));
+
+        when(characterRepository.save(any(Character.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        BuildService buildService = mock(BuildService.class);
+        doNothing().when(buildService).clearPiecesCache(characterId);
+
+        CharacterServiceImpl service = new CharacterServiceImpl(
+                characterRepository,
+                userRepository,
+                buildRepository,
+                buildService,
+                pieceRepository,
+                objectMapper
+        );
+
+        StepVerifier.create(service.assignPiecesWithPowers(characterId, piezas))
+                .expectNextMatches(updated ->
+                        updated.getId().equals(characterId) &&
+                                updated.getPieces().equals(piezas))
+                .verifyComplete();
+    }
+
+    @Test
+    void assignPiecesWithPowers_errorAlGuardarPersonaje_propagaExcepcion() {
+        String characterId = "char1";
+        Piece pieza1 = new Piece();
+        pieza1.setId("pieza1");
+
+        List<Piece> piezas = List.of(pieza1);
+
+        Character mockCharacter = new Character();
+        mockCharacter.setId(characterId);
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(mockCharacter));
+
+        when(characterRepository.save(any(Character.class)))
+                .thenReturn(Mono.error(new RuntimeException("Error en MongoDB")));
+
+        BuildService buildService = mock(BuildService.class);
+        doNothing().when(buildService).clearPiecesCache(characterId);
+
+        CharacterServiceImpl service = new CharacterServiceImpl(
+                characterRepository,
+                userRepository,
+                buildRepository,
+                buildService,
+                pieceRepository,
+                objectMapper
+        );
+
+        StepVerifier.create(service.assignPiecesWithPowers(characterId, piezas))
+                .expectErrorMatches(error ->
+                        error instanceof RuntimeException &&
+                                error.getMessage().contains("Error en MongoDB"))
+                .verify();
+    }
+
+    @Test
+    void assignPiecesWithPowers_invocaClearPiecesCacheCorrectamente() {
+        String characterId = "char1";
+        Piece pieza1 = new Piece();
+        pieza1.setId("pieza1");
+
+        List<Piece> piezas = List.of(pieza1);
+
+        Character mockCharacter = new Character();
+        mockCharacter.setId(characterId);
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(mockCharacter));
+
+        when(characterRepository.save(any(Character.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        BuildService buildService = mock(BuildService.class);
+
+        CharacterServiceImpl service = new CharacterServiceImpl(
+                characterRepository,
+                userRepository,
+                buildRepository,
+                buildService,
+                pieceRepository,
+                objectMapper
+        );
+
+        StepVerifier.create(service.assignPiecesWithPowers(characterId, piezas))
+                .expectNextCount(1)
+                .verifyComplete();
+
+        verify(buildService).clearPiecesCache(characterId);
+    }
+
 }
