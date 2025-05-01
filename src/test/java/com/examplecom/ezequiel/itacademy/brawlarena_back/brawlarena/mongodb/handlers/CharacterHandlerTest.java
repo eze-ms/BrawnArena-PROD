@@ -248,6 +248,32 @@ class CharacterHandlerTest {
     }
 
     @Test
+    void getCharacterId_UsuarioNoAutenticado_NoHaceNada() {
+        when(request.principal())
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(characterHandler.getCharacterId(request))
+                .verifyComplete();
+    }
+
+    @Test
+    void getCharacterId_ErrorEnServicio_PropagaExcepcion() {
+        String playerId = "player1";
+        Authentication auth = new UsernamePasswordAuthenticationToken(playerId, "");
+
+        when(request.principal())
+                .thenAnswer(inv -> Mono.just(auth));
+        when(characterService.getUnlockedCharacters(playerId))
+                .thenReturn(Flux.error(new RuntimeException("Fallo en base de datos")));
+
+        StepVerifier.create(characterHandler.getCharacterId(request))
+                .expectErrorMatches(error ->
+                        error instanceof RuntimeException &&
+                                error.getMessage().contains("Fallo en base de datos"))
+                .verify();
+    }
+
+    @Test
     void unlockCharacter_MissingCharacterId_ReturnsBadRequest() {
 
         mockQueryParams("characterId", null);

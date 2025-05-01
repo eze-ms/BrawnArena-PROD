@@ -1,10 +1,7 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service;
 
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.validator.BuildValidator;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.BuildAlreadyExistsException;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterAccessDeniedException;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterNotFoundException;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.NoPendingBuildException;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.*;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Build;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Piece;
@@ -116,6 +113,175 @@ class BuildServiceImplTest {
                 .expectErrorMatches(ex ->
                         ex instanceof BuildAlreadyExistsException &&
                                 ex.getMessage().equals("Ya tienes un build activo para este personaje"))
+                .verify();
+    }
+
+    @Test
+    void startBuild_usuarioNoExiste_lanzaUserNotFoundException() {
+        String playerId = "jugadorInexistente";
+        String characterId = "char1";
+
+        when(userRepository.findByNickname(playerId))
+                .thenReturn(Mono.empty());
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(new Character()));
+
+        StepVerifier.create(buildService.startBuild(playerId, characterId))
+                .expectErrorMatches(error ->
+                        error instanceof UserNotFoundException &&
+                                error.getMessage().equals("Usuario no encontrado"))
+                .verify();
+    }
+
+    @Test
+    void startBuild_personajeNoExiste_lanzaCharacterNotFoundException() {
+        String playerId = "player1";
+        String characterId = "charInexistente";
+
+        User mockUser = User.builder()
+                .nickname(playerId)
+                .characterIds("[\"charInexistente\"]")
+                .build();
+
+        when(userRepository.findByNickname(playerId))
+                .thenReturn(Mono.just(mockUser));
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(buildService.startBuild(playerId, characterId))
+                .expectErrorMatches(error ->
+                        error instanceof CharacterNotFoundException &&
+                                error.getMessage().equals("Personaje no encontrado"))
+                .verify();
+    }
+
+    @Test
+    void startBuild_personajeNoDesbloqueado_lanzaCharacterAccessDeniedException() {
+        String playerId = "player1";
+        String characterId = "char1";
+
+        User mockUser = User.builder()
+                .nickname(playerId)
+                .characterIds("[\"otroPersonaje\"]")
+                .build();
+
+        Character mockCharacter = new Character();
+        mockCharacter.setId(characterId);
+
+        when(userRepository.findByNickname(playerId))
+                .thenReturn(Mono.just(mockUser));
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(mockCharacter));
+
+        StepVerifier.create(buildService.startBuild(playerId, characterId))
+                .expectErrorMatches(error ->
+                        error instanceof CharacterAccessDeniedException &&
+                                error.getMessage().contains("No puedes iniciar un build"))
+                .verify();
+    }
+
+    @Test
+    void startBuild_errorAlBuscarUsuario_propagaExcepcion() {
+        String playerId = "player1";
+        String characterId = "char1";
+
+        when(userRepository.findByNickname(playerId))
+                .thenReturn(Mono.error(new RuntimeException("Error al acceder a la base de datos de usuarios")));
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(new Character()));
+
+        StepVerifier.create(buildService.startBuild(playerId, characterId))
+                .expectErrorMatches(error ->
+                        error instanceof RuntimeException &&
+                                error.getMessage().equals("Error al acceder a la base de datos de usuarios"))
+                .verify();
+    }
+
+    @Test
+    void startBuild_errorAlBuscarPersonaje_propagaExcepcion() {
+        String playerId = "player1";
+        String characterId = "char1";
+
+        User mockUser = User.builder()
+                .nickname(playerId)
+                .characterIds("[\"char1\"]")
+                .build();
+
+        when(userRepository.findByNickname(playerId))
+                .thenReturn(Mono.just(mockUser));
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.error(new RuntimeException("Error al acceder a la base de datos de personajes")));
+
+        StepVerifier.create(buildService.startBuild(playerId, characterId))
+                .expectErrorMatches(error ->
+                        error instanceof RuntimeException &&
+                                error.getMessage().equals("Error al acceder a la base de datos de personajes"))
+                .verify();
+    }
+
+    @Test
+    void startBuild_errorAlConsultarBuilds_propagaExcepcion() {
+        String playerId = "player1";
+        String characterId = "char1";
+
+        User mockUser = User.builder()
+                .nickname(playerId)
+                .characterIds("[\"char1\"]")
+                .build();
+
+        Character mockCharacter = new Character();
+        mockCharacter.setId(characterId);
+
+        when(userRepository.findByNickname(playerId))
+                .thenReturn(Mono.just(mockUser));
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(mockCharacter));
+
+        when(buildRepository.findAll())
+                .thenReturn(Flux.error(new RuntimeException("Error al consultar builds")));
+
+        StepVerifier.create(buildService.startBuild(playerId, characterId))
+                .expectErrorMatches(error ->
+                        error instanceof RuntimeException &&
+                                error.getMessage().equals("Error al consultar builds"))
+                .verify();
+    }
+
+    @Test
+    void startBuild_errorAlGuardarNuevoBuild_propagaExcepcion() {
+        String playerId = "player1";
+        String characterId = "char1";
+
+        User mockUser = User.builder()
+                .nickname(playerId)
+                .characterIds("[\"char1\"]")
+                .build();
+
+        Character mockCharacter = new Character();
+        mockCharacter.setId(characterId);
+
+        when(userRepository.findByNickname(playerId))
+                .thenReturn(Mono.just(mockUser));
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(mockCharacter));
+
+        when(buildRepository.findAll())
+                .thenReturn(Flux.empty());
+
+        when(buildRepository.save(any(Build.class)))
+                .thenReturn(Mono.error(new RuntimeException("Error al guardar build")));
+
+        StepVerifier.create(buildService.startBuild(playerId, characterId))
+                .expectErrorMatches(error ->
+                        error instanceof RuntimeException &&
+                                error.getMessage().equals("Error al guardar build"))
                 .verify();
     }
 
