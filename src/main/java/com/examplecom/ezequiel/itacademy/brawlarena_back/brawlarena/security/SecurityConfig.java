@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.core.Authentication;
@@ -35,24 +36,33 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityWebFilterChain securityWebFilterChain(
-            ServerHttpSecurity http,
-            ServerSecurityContextRepository jwtSecurityContextRepository) {
+    public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http, ServerSecurityContextRepository jwtSecurityContextRepository) {
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeExchange(exchanges -> exchanges
+                        // Rutas públicas generales
                         .pathMatchers(
                                 "/auth/**",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
                                 "/webjars/**",
-                                "/v3/api-docs/**",
+                                "/v3/api-docs/**"
+                        ).permitAll()
+
+                        // Rutas públicas de lectura
+                        .pathMatchers(HttpMethod.GET,
                                 "/gallery",
                                 "/gallery/highlighted"
                         ).permitAll()
+
+                        // Rutas protegidas (modificación)
+                        .pathMatchers(HttpMethod.POST, "/gallery/share").authenticated()
+                        .pathMatchers(HttpMethod.PUT, "/gallery/highlighted").hasRole("ADMIN")
+                        .pathMatchers(HttpMethod.DELETE, "/gallery/**").authenticated()
+
+                        // Otros módulos protegidos
                         .pathMatchers(
-                                "/gallery/share",
                                 "/gallery/character/**",
                                 "/users/**",
                                 "/characters/**",
@@ -60,7 +70,6 @@ public class SecurityConfig {
                                 "/powers/**"
                         ).authenticated()
                 )
-
 
                 .securityContextRepository(jwtSecurityContextRepository)
                 .build();
@@ -79,7 +88,6 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", config);
         return source;
     }
-
 
     @Bean
     public ServerSecurityContextRepository jwtSecurityContextRepository(JwtService jwtService) {

@@ -1,5 +1,6 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.handler;
 
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.handlers.GalleryHandler;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.service.UserService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -11,7 +12,9 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.reactive.function.server.EntityResponse;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import reactor.core.publisher.Mono;
 import org.springframework.http.HttpStatus;
@@ -22,7 +25,10 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.Us
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import static org.mockito.Mockito.when;
 
 
@@ -34,6 +40,12 @@ class UserHandlerTest {
 
     @InjectMocks
     private UserHandler userHandler;
+
+    @InjectMocks
+    private GalleryHandler galleryHandler;
+
+    @Mock
+    private ServerRequest request;
 
     // Método auxiliar único para los tests
     private ServerRequest createMockRequest(String username, Object requestBody) {
@@ -55,7 +67,6 @@ class UserHandlerTest {
         return request;
     }
 
-    //! test getCurrentUser
     @Test
     void getCurrentUser_Success() {
         String nickname = "testUser";
@@ -95,7 +106,6 @@ class UserHandlerTest {
                 .verifyComplete();
     }
 
-    //! test updateUserTokens
     @Test
     void updateUserTokens_Success() {
 
@@ -132,7 +142,74 @@ class UserHandlerTest {
                 .verifyComplete();
     }
 
-    //! test addCharacterId
+    @Test
+    void getUserGallery_AuthenticatedUser_ReturnsOkWithIds() {
+        String playerId = "player123";
+        List<Long> characterIds = List.of(1L, 2L);
+
+        Authentication auth = new UsernamePasswordAuthenticationToken(playerId, "");
+
+        when(request.principal())
+                .thenAnswer(inv -> Mono.just(auth));
+
+        when(userService.getCharacterIds(playerId))
+                .thenReturn(Mono.just(characterIds));
+
+        StepVerifier.create(userHandler.getUserGallery(request))
+                .assertNext(response -> {
+                    assertEquals(HttpStatus.OK, response.statusCode());
+
+                    Object body = ((EntityResponse<?>) response).entity();
+                    assertInstanceOf(List.class, body);
+
+                    @SuppressWarnings("unchecked")
+                    List<Long> result = (List<Long>) body;
+
+                    assertEquals(2, result.size());
+                    assertEquals(1L, result.get(0));
+                    assertEquals(2L, result.get(1));
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void getUserGallery_MissingAuthentication_ReturnsBadRequest() {
+        when(request.principal())
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(userHandler.getUserGallery(request))
+                .assertNext(response -> {
+                    assertEquals(HttpStatus.BAD_REQUEST, response.statusCode());
+
+                    Object body = ((EntityResponse<?>) response).entity();
+                    assertInstanceOf(String.class, body);
+                    assertTrue(((String) body).contains("Autenticación requerida"));
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void getUserGallery_ServiceError_ReturnsBadRequest() {
+        String playerId = "player123";
+        Authentication auth = new UsernamePasswordAuthenticationToken(playerId, "");
+
+        when(request.principal())
+                .thenAnswer(inv -> Mono.just(auth));
+
+        when(userService.getCharacterIds(playerId))
+                .thenReturn(Mono.error(new RuntimeException("Fallo en el servicio")));
+
+        StepVerifier.create(userHandler.getUserGallery(request))
+                .assertNext(response -> {
+                    assertEquals(HttpStatus.BAD_REQUEST, response.statusCode());
+
+                    Object body = ((EntityResponse<?>) response).entity();
+                    assertInstanceOf(String.class, body);
+                    assertTrue(((String) body).contains("Fallo en el servicio"));
+                })
+                .verifyComplete();
+    }
+
     @Test
     void addCharacterId_Success() throws JsonProcessingException {
 

@@ -1,9 +1,6 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.handlers;
 
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.BuildNotFoundException;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.HighlightedModelNotFoundException;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.ModelNotFoundException;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.*;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.SharedModel;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.GalleryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -257,4 +254,63 @@ public class GalleryHandler {
                 });
     }
 
+    @Operation(
+            summary = "Eliminar modelo compartido",
+            description = "Permite a un jugador o admin eliminar un modelo compartido.",
+            operationId = "deleteSharedModel",
+            security = @SecurityRequirement(name = "bearerAuth"),
+            parameters = {
+                    @Parameter(
+                            name = "sharedModelId",
+                            description = "ID del modelo compartido",
+                            required = true,
+                            in = ParameterIn.PATH,
+                            example = "68126f1f65068f20b327d42f"
+                    )
+            }
+    )
+
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "204",
+                    description = "Modelo eliminado correctamente"
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "sharedModelId inválido"
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Autenticación requerida"
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "No autorizado para eliminar este modelo"
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Modelo no encontrado"
+            )
+    })
+    public Mono<ServerResponse> deleteSharedModel(ServerRequest request) {
+        String sharedModelId = request.pathVariable("sharedModelId");
+
+        if (!StringUtils.hasText(sharedModelId)) {
+            return ServerResponse.badRequest().bodyValue("sharedModelId no puede estar vacío");
+        }
+
+        return request.principal()
+                .switchIfEmpty(Mono.error(new UserNotFoundException("Autenticación requerida")))
+                .cast(Authentication.class)
+                .flatMap(auth -> {
+                    String requesterId = auth.getName();
+                    String role = auth.getAuthorities().iterator().next().getAuthority();
+                    return galleryService.deleteSharedModel(sharedModelId, requesterId, role);
+                })
+                .then(ServerResponse.noContent().build())
+                .onErrorResume(UserNotFoundException.class, e ->
+                        ServerResponse.status(HttpStatus.UNAUTHORIZED).bodyValue(e.getMessage()))
+                .onErrorResume(AccessDeniedException.class, e ->
+                        ServerResponse.status(HttpStatus.FORBIDDEN).bodyValue(e.getMessage()));
+    }
 }

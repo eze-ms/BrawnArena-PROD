@@ -268,6 +268,4 @@ public class BuildServiceImpl implements BuildService {
                 .next()
                 .switchIfEmpty(Mono.error(new NoPendingBuildException("No hay build pendiente para este personaje")));
     }
-
-
 }

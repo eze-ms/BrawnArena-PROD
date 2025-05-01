@@ -82,8 +82,6 @@ class CharacterHandlerTest {
     }
 
 
-    //! getAllCharacters
-    // Respuesta 200 OK con personajes
     @Test
     void getAllCharacters_ReturnsOkWithValidHeaders() throws Exception {
 
@@ -116,7 +114,6 @@ class CharacterHandlerTest {
                 .verifyComplete();
     }
 
-    // Respuesta 204 No Content
     @Test
     void getAllCharacters_ReturnsNoContentWhenEmpty() throws Exception {
 
@@ -146,7 +143,6 @@ class CharacterHandlerTest {
                 .verifyComplete();
     }
 
-    // Manejo de errores
     @Test
     void getAllCharacters_PropagatesServiceError() throws Exception {
 
@@ -209,8 +205,6 @@ class CharacterHandlerTest {
                 .verifyComplete();
     }
 
-    //! getCharacterId
-    // test para personajes desbloqueados
     @Test
     void getCharacterId_ReturnsUnlockedCharacters() {
 
@@ -242,7 +236,6 @@ class CharacterHandlerTest {
                 .verifyComplete();
     }
 
-    //! unlockCharacter
     @Test
     void unlockCharacter_MissingCharacterId_ReturnsBadRequest() {
 
@@ -295,7 +288,6 @@ class CharacterHandlerTest {
                 .verifyComplete();
     }
 
-    //! getCharacterDetail
     @Test
     void getCharacterDetail_ReturnsCharacterDetails() {
         when(request.pathVariable("id"))

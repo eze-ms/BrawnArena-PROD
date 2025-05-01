@@ -29,7 +29,6 @@ class UserServiceImplTest {
     @InjectMocks
     private UserServiceImpl userService;
 
-    //! Tests para findById
     @Test
     void findById_WhenUserExists_ReturnsUser() {
         // Arrange
@@ -55,7 +54,6 @@ class UserServiceImplTest {
                 .verify();
     }
 
-    //! Tests para findByNickname
     @Test
     void findByNickname_WhenUserExists_ReturnsUser() {
         // Arrange
@@ -81,7 +79,6 @@ class UserServiceImplTest {
                 .verify();
     }
 
-    //! Tests para save
     @Test
     void save_WhenNewUser_ReturnsSavedUser() {
         // Arrange
@@ -122,7 +119,6 @@ class UserServiceImplTest {
         verify(passwordEncoder, never()).encode(anyString());
     }
 
-    //! Tests para updateTokens
     @Test
     void updateTokens_WhenUserExists_ReturnsUpdatedUser() {
         // Arrange
@@ -154,5 +150,4 @@ class UserServiceImplTest {
                 .expectError(UserNotFoundException.class)
                 .verify();
     }
-
 }

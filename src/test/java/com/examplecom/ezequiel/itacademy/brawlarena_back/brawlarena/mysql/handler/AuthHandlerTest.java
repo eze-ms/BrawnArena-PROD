@@ -81,7 +81,6 @@ class AuthHandlerTest {
         assertEquals("[\"free1\"]", captured.getCharacterIds());
     }
 
-
     @Test
     void registerUser_ConflictWhenNicknameExists() {
         User existingUser = new User(null, "existingUser", "password123", 100, "USER", "[]");
@@ -99,7 +98,6 @@ class AuthHandlerTest {
                 .expectNextMatches(serverResponse -> serverResponse.statusCode() == HttpStatus.CONFLICT)
                 .verifyComplete();
     }
-
 
     @Test
     void loginUser_Success() {

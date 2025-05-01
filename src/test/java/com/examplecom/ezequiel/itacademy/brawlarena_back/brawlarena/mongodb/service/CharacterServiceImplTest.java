@@ -60,7 +60,6 @@ class CharacterServiceImplTest {
 
     }
 
-    // ! Test para getAllCharacters
     @Test
     void getAllCharacters_ReturnsFluxOfCharacters() {
 
@@ -103,7 +102,6 @@ class CharacterServiceImplTest {
                 .verify();
     }
 
-    //! Test para getUnlockedCharacters
     @Test
     void getUnlockedCharacters_ReturnsFilteredCharacters() {
         String playerId = "player1";
@@ -160,7 +158,6 @@ class CharacterServiceImplTest {
                 .verify();
     }
 
-    //! Test para unlockCharacter
     @Test
     void unlockCharacter_SuccessfullyUnlocks_ReturnsTrue() {
 
@@ -241,7 +238,6 @@ class CharacterServiceImplTest {
                 .verify();
     }
 
-    //! Tests para getCharacterDetail
     @Test
     void getCharacterDetail_ReturnsCharacterWhenExists() {
 

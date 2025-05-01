@@ -78,7 +78,6 @@ public class CharacterHandler {
         );
     }
 
-    //! Devuelve la lista completa de personajes, sin filtrar por desbloqueo o usuario
     @Operation(
             summary = "Obtener todos los personajes",
             description = "Devuelve la lista completa de personajes disponibles en el juego, marcando cuáles están desbloqueados por el jugador autenticado.",
@@ -141,7 +140,6 @@ public class CharacterHandler {
                 .doOnError(e -> logger.error("Error al recuperar personajes", e));
     }
 
-    //! Devuelve los personajes que el jugador ha desbloqueado
     @Operation(
             summary = "Desbloquear personaje",
             description = "Permite desbloquear un personaje específico para el jugador autenticado mediante su ID.",
@@ -185,7 +183,6 @@ public class CharacterHandler {
                 });
     }
 
-    //! Permite desbloquear un personaje utilizando tokens, asociándolo con el jugador
     @Operation(
             summary = "Desbloquear personaje",
             description = "Permite desbloquear un personaje específico para el jugador autenticado mediante su ID.",
@@ -245,7 +242,6 @@ public class CharacterHandler {
                 });
     }
 
-    //! Devuelve la información detallada de un personaje específico, como poderes y dificultad
     @Operation(
             summary = "Obtener detalles de un personaje",
             description = "Devuelve los detalles completos de un personaje específico a partir de su ID.",
@@ -284,7 +280,6 @@ public class CharacterHandler {
                 .flatMap(character -> ServerResponse.ok().bodyValue(character));
     }
 
-    //! Devuelve la lista de los personajes actualizados
     @Operation(
             summary = "Actualizar personaje",
             description = "Actualiza los datos de un personaje existente mediante su ID.",

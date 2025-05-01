@@ -32,6 +32,16 @@ public class GalleryServiceImpl implements GalleryService{
     }
 
     @Override
+    public Flux<SharedModel> getPublicGallery() {
+        return sharedModelRepository.findAll()
+                .sort((a, b) -> b.getSharedAt().compareTo(a.getSharedAt()))
+                .doOnSubscribe(sub -> logger.info("Recuperando galería pública de modelos compartidos"))
+                .doOnNext(model -> logger.debug("Modelo compartido encontrado: playerId={}, characterId={}", model.getPlayerId(), model.getCharacterId()))
+                .doOnComplete(() -> logger.info("Galería pública recuperada correctamente"))
+                .doOnError(error -> logger.error("Error al recuperar galería pública: {}", error.getMessage()));
+    }
+
+    @Override
     public Mono<SharedModel> shareModel(String playerId, String characterId) {
         if (!StringUtils.hasText(playerId) || !StringUtils.hasText(characterId)) {
             return Mono.error(new IllegalArgumentException("playerId y characterId son obligatorios"));
@@ -65,16 +75,6 @@ public class GalleryServiceImpl implements GalleryService{
                             .doOnSuccess(saved -> logger.info("Modelo compartido correctamente por jugador {} con personaje {}", playerId, characterId));
                 })
                 .doOnError(error -> logger.error("Error al compartir modelo para jugador {}: {}", playerId, error.getMessage()));
-    }
-
-    @Override
-    public Flux<SharedModel> getPublicGallery() {
-        return sharedModelRepository.findAll()
-                .sort((a, b) -> b.getSharedAt().compareTo(a.getSharedAt()))
-                .doOnSubscribe(sub -> logger.info("Recuperando galería pública de modelos compartidos"))
-                .doOnNext(model -> logger.debug("Modelo compartido encontrado: playerId={}, characterId={}", model.getPlayerId(), model.getCharacterId()))
-                .doOnComplete(() -> logger.info("Galería pública recuperada correctamente"))
-                .doOnError(error -> logger.error("Error al recuperar galería pública: {}", error.getMessage()));
     }
 
     @Override

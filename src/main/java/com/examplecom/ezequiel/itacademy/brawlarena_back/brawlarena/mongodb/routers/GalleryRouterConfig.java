@@ -62,7 +62,7 @@ public class GalleryRouterConfig {
                 .GET("/gallery/highlighted", galleryHandler::getHighlightedModel)
                 .GET("/gallery/character/{characterId}", galleryHandler::getSharedUsersByCharacter)
                 .PUT("/gallery/highlighted", galleryHandler::highlightModel)
-//                .DELETE("/gallery/{sharedModelId}", galleryHandler::deleteSharedModel)
+                .DELETE("/gallery/{sharedModelId}", galleryHandler::deleteSharedModel)
                 .build();
     }
 }

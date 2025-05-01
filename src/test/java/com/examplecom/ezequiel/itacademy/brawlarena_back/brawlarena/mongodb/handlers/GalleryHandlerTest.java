@@ -3,6 +3,7 @@ package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.han
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.BuildNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.ModelNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.AccessDeniedException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.SharedModel;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.GalleryService;
 import org.junit.jupiter.api.Test;
@@ -21,7 +22,6 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import reactor.core.publisher.Flux;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-
 
 import java.util.List;
 
@@ -474,6 +474,96 @@ class GalleryHandlerTest {
                     assertInstanceOf(String.class, body);
                     assertEquals("Error interno", body);
                 })
+                .verifyComplete();
+    }
+
+    @Test
+    void deleteSharedModel_EmptySharedModelId_ReturnsBadRequest() {
+        when(request.pathVariable("sharedModelId"))
+                .thenReturn(""); // parámetro vacío
+
+        StepVerifier.create(galleryHandler.deleteSharedModel(request))
+                .assertNext(response -> {
+                    assertEquals(HttpStatus.BAD_REQUEST, response.statusCode());
+
+                    Object body = ((EntityResponse<?>) response).entity();
+                    assertInstanceOf(String.class, body);
+                    assertTrue(((String) body).contains("sharedModelId no puede estar vacío"));
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void deleteSharedModel_MissingAuthentication_ReturnsUnauthorized() {
+        when(request.pathVariable("sharedModelId"))
+                .thenReturn("shared123");
+
+        when(request.principal())
+                .thenReturn(Mono.empty());
+        StepVerifier.create(galleryHandler.deleteSharedModel(request))
+                .assertNext(response -> {
+                    assertEquals(HttpStatus.UNAUTHORIZED, response.statusCode());
+
+                    Object body = ((EntityResponse<?>) response).entity();
+                    assertInstanceOf(String.class, body);
+                    assertTrue(((String) body).contains("Autenticación requerida"));
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void deleteSharedModel_UserWithoutPermission_ReturnsForbidden() {
+        String sharedModelId = "shared123";
+        String requesterId = "user123";
+
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                requesterId,
+                "",
+                List.of(() -> "ROLE_USER")
+        );
+
+        when(request.pathVariable("sharedModelId"))
+                .thenReturn(sharedModelId);
+
+        when(request.principal())
+                .thenAnswer(inv -> Mono.just(auth));
+
+        when(galleryService.deleteSharedModel(sharedModelId, requesterId, "ROLE_USER"))
+                .thenReturn(Mono.error(new AccessDeniedException("No tienes permisos para eliminar este modelo")));
+
+        StepVerifier.create(galleryHandler.deleteSharedModel(request))
+                .assertNext(response -> {
+                    assertEquals(HttpStatus.FORBIDDEN, response.statusCode());
+
+                    Object body = ((EntityResponse<?>) response).entity();
+                    assertInstanceOf(String.class, body);
+                    assertTrue(((String) body).contains("permisos"));
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void deleteSharedModel_Success_ReturnsNoContent() {
+        String sharedModelId = "shared123";
+        String requesterId = "adminUser";
+
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                requesterId,
+                "",
+                List.of(() -> "ROLE_ADMIN")
+        );
+
+        when(request.pathVariable("sharedModelId"))
+                .thenReturn(sharedModelId);
+
+        when(request.principal())
+                .thenAnswer(inv -> Mono.just(auth));
+
+        when(galleryService.deleteSharedModel(sharedModelId, requesterId, "ROLE_ADMIN"))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(galleryHandler.deleteSharedModel(request))
+                .assertNext(response -> assertEquals(HttpStatus.NO_CONTENT, response.statusCode()))
                 .verifyComplete();
     }
 
