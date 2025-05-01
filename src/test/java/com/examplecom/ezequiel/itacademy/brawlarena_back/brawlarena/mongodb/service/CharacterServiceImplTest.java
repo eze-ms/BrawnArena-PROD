@@ -1,8 +1,10 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service;
 
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterNotFoundException;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.CharacterUpdateRequest;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Piece;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.enums.Power;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.BuildRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.PieceRepository;
@@ -276,6 +278,485 @@ class CharacterServiceImplTest {
 
         StepVerifier.create(characterService.getCharacterDetail("char1"))
                 .expectError(RuntimeException.class)
+                .verify();
+    }
+
+    @Test
+    void updateCharacter_conCharacterValidoYSinPiezas_actualizaCamposYGuardaCorrectamente() {
+        String characterId = "char1";
+
+        Character personajeExistente = new Character();
+        personajeExistente.setId(characterId);
+        personajeExistente.setName("ViejoNombre");
+        personajeExistente.setDescription("ViejaDesc");
+        personajeExistente.setDifficulty("Fácil");
+        personajeExistente.setImageUrl("vieja.png");
+        personajeExistente.setPowers(new ArrayList<>());
+
+        CharacterUpdateRequest request = new CharacterUpdateRequest();
+        request.setName("NuevoNombre");
+        request.setDescription("NuevaDesc");
+        request.setDifficulty("Difícil");
+        request.setImageUrl("nueva.png");
+        request.setPowers(List.of(Power.POSTURA_IMPARABLE));
+        request.setPieces(null);
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(personajeExistente));
+
+        when(characterRepository.save(any(Character.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        BuildService buildService = mock(BuildService.class);
+
+        CharacterServiceImpl service = new CharacterServiceImpl(
+                characterRepository,
+                userRepository,
+                buildRepository,
+                buildService,
+                pieceRepository,
+                objectMapper
+        );
+
+        StepVerifier.create(service.updateCharacter(characterId, request))
+                .expectNextMatches(actualizado ->
+                        actualizado.getName().equals("NuevoNombre") &&
+                                actualizado.getDescription().equals("NuevaDesc") &&
+                                actualizado.getDifficulty().equals("Difícil") &&
+                                actualizado.getImageUrl().equals("nueva.png") &&
+                                actualizado.getPowers().equals(List.of(Power.POSTURA_IMPARABLE)) &&
+                                actualizado.getPieces() == null)
+
+                .verifyComplete();
+    }
+
+    @Test
+    void updateCharacter_conCharacterValidoYConPiezas_actualizaCamposYLimpiaCache() {
+        String characterId = "char1";
+
+        Character personajeExistente = new Character();
+        personajeExistente.setId(characterId);
+        personajeExistente.setPowers(new ArrayList<>());
+
+        CharacterUpdateRequest request = new CharacterUpdateRequest();
+        request.setName("NuevoNombre");
+        request.setDescription("NuevaDesc");
+        request.setDifficulty("Difícil");
+        request.setImageUrl("nueva.png");
+        request.setPowers(List.of(Power.POSTURA_IMPARABLE));
+
+        Piece pieza = new Piece();
+        pieza.setId("p1");
+        request.setPieces(List.of(pieza));
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(personajeExistente));
+
+        when(characterRepository.save(any(Character.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        BuildService buildService = mock(BuildService.class);
+
+        CharacterServiceImpl service = new CharacterServiceImpl(
+                characterRepository,
+                userRepository,
+                buildRepository,
+                buildService,
+                pieceRepository,
+                objectMapper
+        );
+
+        StepVerifier.create(service.updateCharacter(characterId, request))
+                .expectNextMatches(actualizado ->
+                        actualizado.getName().equals("NuevoNombre") &&
+                                actualizado.getDescription().equals("NuevaDesc") &&
+                                actualizado.getDifficulty().equals("Difícil") &&
+                                actualizado.getImageUrl().equals("nueva.png") &&
+                                actualizado.getPowers().equals(List.of(Power.POSTURA_IMPARABLE)) &&
+                                actualizado.getPieces().equals(List.of(pieza)))
+                .verifyComplete();
+
+        verify(buildService).clearPiecesCache(characterId);
+    }
+
+    @Test
+    void updateCharacter_personajeNoExiste_lanzaCharacterNotFoundException() {
+        String characterId = "charInexistente";
+
+        CharacterUpdateRequest request = new CharacterUpdateRequest();
+        request.setName("Nombre");
+        request.setDescription("Desc");
+        request.setDifficulty("Media");
+        request.setImageUrl("img.png");
+        request.setPowers(List.of(Power.POSTURA_IMPARABLE));
+        request.setPieces(null);
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.empty());
+
+        BuildService buildService = mock(BuildService.class);
+
+        CharacterServiceImpl service = new CharacterServiceImpl(
+                characterRepository,
+                userRepository,
+                buildRepository,
+                buildService,
+                pieceRepository,
+                objectMapper
+        );
+
+        StepVerifier.create(service.updateCharacter(characterId, request))
+                .expectErrorMatches(error ->
+                        error instanceof CharacterNotFoundException &&
+                                error.getMessage().contains("Personaje no encontrado"))
+                .verify();
+    }
+
+    @Test
+    void updateCharacter_conRequestNulo_lanzaNullPointerException() {
+        String characterId = "char1";
+
+        BuildService buildService = mock(BuildService.class);
+
+        CharacterServiceImpl service = new CharacterServiceImpl(
+                characterRepository,
+                userRepository,
+                buildRepository,
+                buildService,
+                pieceRepository,
+                objectMapper
+        );
+
+        assertThrows(NullPointerException.class,
+                () -> service.updateCharacter(characterId, null).block());
+    }
+
+    @Test
+    void updateCharacter_conPiezasNulas_noInvocaClearPiecesCachePeroGuarda() {
+        String characterId = "char1";
+
+        Character personajeExistente = new Character();
+        personajeExistente.setId(characterId);
+        personajeExistente.setPowers(new ArrayList<>());
+
+        CharacterUpdateRequest request = new CharacterUpdateRequest();
+        request.setName("NombreActualizado");
+        request.setDescription("DescActualizada");
+        request.setDifficulty("Alta");
+        request.setImageUrl("nueva.png");
+        request.setPowers(List.of(Power.POSTURA_IMPARABLE));
+        request.setPieces(null);
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(personajeExistente));
+
+        when(characterRepository.save(any(Character.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        BuildService buildService = mock(BuildService.class);
+
+        CharacterServiceImpl service = new CharacterServiceImpl(
+                characterRepository,
+                userRepository,
+                buildRepository,
+                buildService,
+                pieceRepository,
+                objectMapper
+        );
+
+        StepVerifier.create(service.updateCharacter(characterId, request))
+                .expectNextMatches(actualizado ->
+                        actualizado.getName().equals("NombreActualizado") &&
+                                actualizado.getDescription().equals("DescActualizada") &&
+                                actualizado.getDifficulty().equals("Alta") &&
+                                actualizado.getImageUrl().equals("nueva.png") &&
+                                actualizado.getPowers().equals(List.of(Power.POSTURA_IMPARABLE)) &&
+                                actualizado.getPieces() == null)
+                .verifyComplete();
+
+        verify(buildService, never()).clearPiecesCache(any());
+    }
+
+    @Test
+    void updateCharacter_errorAlBuscarPersonaje_propagaExcepcion() {
+        String characterId = "char1";
+
+        CharacterUpdateRequest request = new CharacterUpdateRequest();
+        request.setName("Nombre");
+        request.setDescription("Desc");
+        request.setDifficulty("Media");
+        request.setImageUrl("img.png");
+        request.setPowers(List.of(Power.POSTURA_IMPARABLE));
+        request.setPieces(null);
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.error(new RuntimeException("Error al buscar")));
+
+        BuildService buildService = mock(BuildService.class);
+
+        CharacterServiceImpl service = new CharacterServiceImpl(
+                characterRepository,
+                userRepository,
+                buildRepository,
+                buildService,
+                pieceRepository,
+                objectMapper
+        );
+
+        StepVerifier.create(service.updateCharacter(characterId, request))
+                .expectErrorMatches(error ->
+                        error instanceof RuntimeException &&
+                                error.getMessage().equals("Error al buscar"))
+                .verify();
+    }
+
+    @Test
+    void updateCharacter_errorAlGuardarPersonaje_propagaExcepcion() {
+        String characterId = "char1";
+
+        Character personajeExistente = new Character();
+        personajeExistente.setId(characterId);
+        personajeExistente.setPowers(new ArrayList<>());
+
+        CharacterUpdateRequest request = new CharacterUpdateRequest();
+        request.setName("Nombre");
+        request.setDescription("Desc");
+        request.setDifficulty("Alta");
+        request.setImageUrl("img.png");
+        request.setPowers(List.of(Power.POSTURA_IMPARABLE));
+        request.setPieces(null);
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(personajeExistente));
+
+        when(characterRepository.save(any(Character.class)))
+                .thenReturn(Mono.error(new RuntimeException("Error al guardar")));
+
+        BuildService buildService = mock(BuildService.class);
+
+        CharacterServiceImpl service = new CharacterServiceImpl(
+                characterRepository,
+                userRepository,
+                buildRepository,
+                buildService,
+                pieceRepository,
+                objectMapper
+        );
+
+        StepVerifier.create(service.updateCharacter(characterId, request))
+                .expectErrorMatches(error ->
+                        error instanceof RuntimeException &&
+                                error.getMessage().equals("Error al guardar"))
+                .verify();
+    }
+
+    @Test
+    void updateCharacter_invocaClearPiecesCacheSoloSiHayPiezas() {
+        String characterId = "char1";
+
+        Character personajeExistente = new Character();
+        personajeExistente.setId(characterId);
+        personajeExistente.setPowers(new ArrayList<>());
+
+        CharacterUpdateRequest requestConPiezas = new CharacterUpdateRequest();
+        requestConPiezas.setName("Nombre");
+        requestConPiezas.setDescription("Desc");
+        requestConPiezas.setDifficulty("Media");
+        requestConPiezas.setImageUrl("img.png");
+        requestConPiezas.setPowers(List.of(Power.POSTURA_IMPARABLE));
+
+        Piece pieza = new Piece();
+        pieza.setId("pieza1");
+        requestConPiezas.setPieces(List.of(pieza));
+
+        CharacterUpdateRequest requestSinPiezas = new CharacterUpdateRequest();
+        requestSinPiezas.setName("Nombre");
+        requestSinPiezas.setDescription("Desc");
+        requestSinPiezas.setDifficulty("Media");
+        requestSinPiezas.setImageUrl("img.png");
+        requestSinPiezas.setPowers(List.of(Power.POSTURA_IMPARABLE));
+        requestSinPiezas.setPieces(null);
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(personajeExistente));
+
+        when(characterRepository.save(any(Character.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        BuildService buildService = mock(BuildService.class);
+
+        CharacterServiceImpl service = new CharacterServiceImpl(
+                characterRepository,
+                userRepository,
+                buildRepository,
+                buildService,
+                pieceRepository,
+                objectMapper
+        );
+
+        StepVerifier.create(service.updateCharacter(characterId, requestConPiezas))
+                .expectNextCount(1)
+                .verifyComplete();
+        verify(buildService).clearPiecesCache(characterId);
+
+        reset(buildService);
+
+        StepVerifier.create(service.updateCharacter(characterId, requestSinPiezas))
+                .expectNextCount(1)
+                .verifyComplete();
+        verify(buildService, never()).clearPiecesCache(any());
+    }
+
+    @Test
+    void assignPieces_conListaDePieceIdsNula_lanzaIllegalArgumentException() {
+        String characterId = "char1";
+
+        assertThrows(IllegalArgumentException.class,
+                () -> characterService.assignPieces(characterId, null).block());
+    }
+
+    @Test
+    void assignPieces_conListaDePieceIdsVacia_lanzaIllegalArgumentException() {
+        String characterId = "char1";
+
+        assertThrows(IllegalArgumentException.class,
+                () -> characterService.assignPieces(characterId, List.of()).block());
+    }
+
+    @Test
+    void assignPieces_personajeNoExiste_lanzaCharacterNotFoundException() {
+        String characterId = "charInexistente";
+        List<String> pieceIds = List.of("pieza1", "pieza2");
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(characterService.assignPieces(characterId, pieceIds))
+                .expectErrorMatches(error ->
+                        error instanceof CharacterNotFoundException &&
+                                error.getMessage().contains("Personaje no encontrado"))
+                .verify();
+    }
+
+    @Test
+    void assignPieces_conCharacterYPieceIdsValidos_guardaPersonajeConPiezas() {
+        String characterId = "char1";
+        String pieceId1 = "pieza1";
+        String pieceId2 = "pieza2";
+        List<String> pieceIds = List.of(pieceId1, pieceId2);
+
+        Piece pieza1 = new Piece();
+        pieza1.setId(pieceId1);
+
+        Piece pieza2 = new Piece();
+        pieza2.setId(pieceId2);
+
+        Character personajeExistente = new Character();
+        personajeExistente.setId(characterId);
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(personajeExistente));
+
+        when(pieceRepository.findByIdIn(pieceIds))
+                .thenReturn(Flux.just(pieza1, pieza2));
+
+        when(characterRepository.save(any(Character.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        StepVerifier.create(characterService.assignPieces(characterId, pieceIds))
+                .expectNextMatches(actualizado ->
+                        actualizado.getId().equals(characterId) &&
+                                actualizado.getPieces().equals(List.of(pieza1, pieza2)))
+                .verifyComplete();
+    }
+
+    @Test
+    void assignPieces_conListaDePiezasVacia_guardaPersonajeSinPiezas() {
+        String characterId = "char1";
+        List<String> pieceIds = List.of("pieza1", "pieza2");
+
+        Character personajeExistente = new Character();
+        personajeExistente.setId(characterId);
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(personajeExistente));
+
+        when(pieceRepository.findByIdIn(pieceIds))
+                .thenReturn(Flux.empty());
+
+        when(characterRepository.save(any(Character.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        StepVerifier.create(characterService.assignPieces(characterId, pieceIds))
+                .expectNextMatches(actualizado ->
+                        actualizado.getId().equals(characterId) &&
+                                (actualizado.getPieces() == null || actualizado.getPieces().isEmpty()))
+                .verifyComplete();
+    }
+
+    @Test
+    void assignPieces_errorAlBuscarPersonaje_propagaExcepcion() {
+        String characterId = "char1";
+        List<String> pieceIds = List.of("pieza1", "pieza2");
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.error(new RuntimeException("Error al buscar personaje")));
+
+        StepVerifier.create(characterService.assignPieces(characterId, pieceIds))
+                .expectErrorMatches(error ->
+                        error instanceof RuntimeException &&
+                                error.getMessage().equals("Error al buscar personaje"))
+                .verify();
+    }
+
+    @Test
+    void assignPieces_errorAlBuscarPiezas_propagaExcepcion() {
+        String characterId = "char1";
+        List<String> pieceIds = List.of("pieza1", "pieza2");
+
+        Character personajeExistente = new Character();
+        personajeExistente.setId(characterId);
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(personajeExistente));
+
+        when(pieceRepository.findByIdIn(pieceIds))
+                .thenReturn(Flux.error(new RuntimeException("Error al buscar piezas")));
+
+        StepVerifier.create(characterService.assignPieces(characterId, pieceIds))
+                .expectErrorMatches(error ->
+                        error instanceof RuntimeException &&
+                                error.getMessage().equals("Error al buscar piezas"))
+                .verify();
+    }
+
+    @Test
+    void assignPieces_errorAlGuardarPersonaje_propagaExcepcion() {
+        String characterId = "char1";
+        List<String> pieceIds = List.of("pieza1", "pieza2");
+
+        Character personajeExistente = new Character();
+        personajeExistente.setId(characterId);
+
+        Piece pieza1 = new Piece();
+        pieza1.setId("pieza1");
+
+        Piece pieza2 = new Piece();
+        pieza2.setId("pieza2");
+
+        when(characterRepository.findById(characterId))
+                .thenReturn(Mono.just(personajeExistente));
+
+        when(pieceRepository.findByIdIn(pieceIds))
+                .thenReturn(Flux.just(pieza1, pieza2));
+
+        when(characterRepository.save(any(Character.class)))
+                .thenReturn(Mono.error(new RuntimeException("Error al guardar personaje")));
+
+        StepVerifier.create(characterService.assignPieces(characterId, pieceIds))
+                .expectErrorMatches(error ->
+                        error instanceof RuntimeException &&
+                                error.getMessage().equals("Error al guardar personaje"))
                 .verify();
     }
 

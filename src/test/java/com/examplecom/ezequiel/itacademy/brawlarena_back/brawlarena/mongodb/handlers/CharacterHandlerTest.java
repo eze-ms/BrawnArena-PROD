@@ -599,7 +599,6 @@ class CharacterHandlerTest {
                 .verifyComplete();
     }
 
-
     @Test
     void assignPiecesWithPowers_CharacterIdVacio_RetornaBadRequest() {
         // Simula que el path variable 'id' está vacío
