@@ -1,7 +1,6 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.handlers;
 
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.BuildNotFoundException;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.HighlightedModelNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.ModelNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.SharedModel;
@@ -299,7 +298,7 @@ class GalleryHandlerTest {
                                 throwable.getMessage().contains("Error inesperado al procesar la solicitud")) // Verifica el mensaje de error
                 .verify();
     }
-    
+
     @Test
     void getSharedUsersByCharacter_MissingCharacterId_ReturnsBadRequest() {
         when(request.pathVariable("characterId"))

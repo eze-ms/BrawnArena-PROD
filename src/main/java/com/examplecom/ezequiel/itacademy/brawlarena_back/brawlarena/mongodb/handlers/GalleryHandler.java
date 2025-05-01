@@ -154,7 +154,6 @@ public class GalleryHandler {
                 });
     }
 
-
     @Operation(
             summary = "Obtener usuarios que compartieron un personaje",
             description = "Devuelve los IDs de jugadores que han compartido públicamente el modelo de un personaje específico.",

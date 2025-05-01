@@ -593,5 +593,118 @@ class GalleryServiceImplTest {
                 .verify();
     }
 
+    @Test
+    void deleteSharedModel_conParametrosNulosOVacios_lanzaIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class,
+                () -> galleryService.deleteSharedModel(null, "player1", "USER").block());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> galleryService.deleteSharedModel("", "player1", "USER").block());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> galleryService.deleteSharedModel("model1", null, "USER").block());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> galleryService.deleteSharedModel("model1", "", "USER").block());
+    }
+
+    @Test
+    void deleteSharedModel_modeloNoExiste_lanzaModelNotFoundException() {
+        String sharedModelId = "modelX";
+        String requesterId = "player1";
+        String role = "USER";
+
+        when(sharedModelRepository.findById(sharedModelId))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(galleryService.deleteSharedModel(sharedModelId, requesterId, role))
+                .expectErrorMatches(ex ->
+                        ex instanceof ModelNotFoundException &&
+                                ex.getMessage().contains("Modelo compartido no encontrado"))
+                .verify();
+    }
+
+    @Test
+    void deleteSharedModel_usuarioSinPermisos_lanzaAccessDeniedException() {
+        String sharedModelId = "model1";
+        String requesterId = "otroPlayer";
+        String role = "USER";
+
+        SharedModel modelo = new SharedModel();
+        modelo.setId(sharedModelId);
+        modelo.setPlayerId("autorDelModelo");
+
+        when(sharedModelRepository.findById(sharedModelId))
+                .thenReturn(Mono.just(modelo));
+
+        StepVerifier.create(galleryService.deleteSharedModel(sharedModelId, requesterId, role))
+                .expectErrorMatches(ex ->
+                        ex instanceof AccessDeniedException &&
+                                ex.getMessage().contains("No tienes permiso"))
+                .verify();
+    }
+
+    @Test
+    void deleteSharedModel_autorDelModelo_eliminaCorrectamente() {
+        String sharedModelId = "model1";
+        String requesterId = "player1";
+        String role = "USER";
+
+        SharedModel modelo = new SharedModel();
+        modelo.setId(sharedModelId);
+        modelo.setPlayerId(requesterId);
+
+        when(sharedModelRepository.findById(sharedModelId))
+                .thenReturn(Mono.just(modelo));
+
+        when(sharedModelRepository.delete(modelo))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(galleryService.deleteSharedModel(sharedModelId, requesterId, role))
+                .verifyComplete();
+    }
+
+    @Test
+    void deleteSharedModel_adminNoAutor_eliminaCorrectamente() {
+        String sharedModelId = "model1";
+        String requesterId = "adminUser";
+        String role = "ADMIN";
+
+        SharedModel modelo = new SharedModel();
+        modelo.setId(sharedModelId);
+        modelo.setPlayerId("otroJugador");
+
+        when(sharedModelRepository.findById(sharedModelId))
+                .thenReturn(Mono.just(modelo));
+
+        when(sharedModelRepository.delete(modelo))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(galleryService.deleteSharedModel(sharedModelId, requesterId, role))
+                .verifyComplete();
+    }
+
+    @Test
+    void deleteSharedModel_errorAlEliminar_propagaExcepcion() {
+        String sharedModelId = "model1";
+        String requesterId = "player1";
+        String role = "USER";
+
+        SharedModel modelo = new SharedModel();
+        modelo.setId(sharedModelId);
+        modelo.setPlayerId(requesterId);
+
+        when(sharedModelRepository.findById(sharedModelId))
+                .thenReturn(Mono.just(modelo));
+
+        when(sharedModelRepository.delete(modelo))
+                .thenReturn(Mono.error(new RuntimeException("Error al eliminar modelo")));
+
+        StepVerifier.create(galleryService.deleteSharedModel(sharedModelId, requesterId, role))
+                .expectErrorMatches(ex ->
+                        ex instanceof RuntimeException &&
+                                ex.getMessage().equals("Error al eliminar modelo"))
+                .verify();
+    }
 
 }
