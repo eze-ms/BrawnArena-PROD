@@ -24,6 +24,7 @@ import reactor.core.publisher.Flux;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
@@ -148,8 +149,8 @@ class GalleryHandlerTest {
         when(request.principal())
                 .thenAnswer(inv -> Mono.just(auth));
 
-        when(request.bodyToMono(String.class))
-                .thenReturn(Mono.just(characterId));
+        when(request.queryParam("characterId"))
+                .thenReturn(Optional.of(characterId));
 
         when(galleryService.shareModel(playerId, characterId))
                 .thenReturn(Mono.just(shared));
@@ -170,35 +171,32 @@ class GalleryHandlerTest {
     }
 
     @Test
-    void shareModel_InvalidBody_ReturnsBadRequest() {
+    void shareModel_CharacterIdVacio_ReturnsBadRequest() {
         String playerId = "player123";
         Authentication auth = new UsernamePasswordAuthenticationToken(playerId, "");
 
         when(request.principal())
                 .thenAnswer(inv -> Mono.just(auth));
 
-        when(request.bodyToMono(String.class))
-                .thenReturn(Mono.just("")); // Simula un characterId vacío
+        when(request.queryParam("characterId"))
+                .thenReturn(Optional.of(""));
 
-        // Verificamos que el error lanzado es IllegalArgumentException y que contiene el mensaje adecuado
         StepVerifier.create(galleryHandler.shareModel(request))
                 .expectErrorMatches(throwable ->
                         throwable instanceof IllegalArgumentException &&
-                                throwable.getMessage().contains("characterId no puede estar vacío")) // Verifica el mensaje de error
+                                throwable.getMessage().contains("characterId no puede estar vacío"))
                 .verify();
     }
 
     @Test
     void shareModel_MissingAuthentication_ReturnsUnauthorized() {
-        // Simulamos que el principal (usuario autenticado) no está presente
         when(request.principal())
-                .thenReturn(Mono.empty()); // Esto simula que no hay autenticación
+                .thenReturn(Mono.empty());
 
-        // Verificamos que la respuesta sea UNAUTHORIZED (401)
         StepVerifier.create(galleryHandler.shareModel(request))
                 .expectErrorMatches(throwable ->
                         throwable instanceof UserNotFoundException &&
-                                throwable.getMessage().contains("Autenticación requerida")) // Verifica el mensaje de error
+                                throwable.getMessage().contains("Autenticación requerida"))
                 .verify();
     }
 
@@ -211,12 +209,11 @@ class GalleryHandlerTest {
         when(request.principal())
                 .thenAnswer(inv -> Mono.just(auth));
 
-        when(request.bodyToMono(String.class))
-                .thenReturn(Mono.just(characterId));
+        when(request.queryParam("characterId"))
+                .thenReturn(Optional.of(characterId));
 
         when(galleryService.shareModel(playerId, characterId))
                 .thenReturn(Mono.error(new BuildNotFoundException("Build válido no encontrado")));
-
 
         StepVerifier.create(galleryHandler.shareModel(request))
                 .expectErrorMatches(throwable ->
@@ -234,12 +231,11 @@ class GalleryHandlerTest {
         when(request.principal())
                 .thenAnswer(inv -> Mono.just(auth));
 
-        when(request.bodyToMono(String.class))
-                .thenReturn(Mono.just(characterId));
+        when(request.queryParam("characterId"))
+                .thenReturn(Optional.of(characterId));
 
         when(galleryService.shareModel(playerId, characterId))
                 .thenReturn(Mono.error(new RuntimeException("Error inesperado al procesar la solicitud")));
-
 
         StepVerifier.create(galleryHandler.shareModel(request))
                 .expectErrorMatches(throwable ->

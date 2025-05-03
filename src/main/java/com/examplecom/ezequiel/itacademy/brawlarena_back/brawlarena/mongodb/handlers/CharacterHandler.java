@@ -89,7 +89,6 @@ public class CharacterHandler {
     @Operation(
             summary = "Obtener todos los personajes",
             description = "Devuelve la lista completa de personajes disponibles en el juego, marcando cuáles están desbloqueados por el jugador autenticado.",
-            security = @SecurityRequirement(name = "bearerAuth"),
             operationId = "getAllCharacters"
     )
     @ApiResponses(
@@ -110,42 +109,27 @@ public class CharacterHandler {
             }
     )
     public Mono<ServerResponse> getAllCharacters(ServerRequest request) {
-        logger.info("Solicitud recibida: obtener todos los personajes");
-
-        return request.principal()
-                .cast(Authentication.class)
-                .map(Authentication::getName)
-                .flatMapMany(playerId ->
-                        userRepository.findByNickname(playerId)
-                                .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no encontrado")))
-                                .flatMapMany(user -> {
-                                    Set<String> unlockedIds;
-                                    try {
-                                        String characterIdsJson = Optional.ofNullable(user.getCharacterIds()).orElse("[]");
-                                        List<String> ids = objectMapper.readValue(characterIdsJson, new TypeReference<>() {});
-                                        unlockedIds = new HashSet<>(ids);
-                                    } catch (JsonProcessingException e) {
-                                        logger.error("Error al deserializar characterIds: {}", e.getMessage());
-                                        return Flux.error(new RuntimeException("Error al procesar personajes desbloqueados"));
-                                    }
-
-                                    return characterService.getAllCharacters()
-                                            .map(character -> mapToResponse(character, unlockedIds));
-                                })
-                )
+        return characterService.getAllCharacters()
+                .map(this::mapToPublicResponse)
                 .collectList()
-                .flatMap(characterResponses -> {
-                    if (characterResponses.isEmpty()) {
-                        return ServerResponse.noContent()
-                                .header("X-API-Version", "1.0")
-                                .build();
-                    }
-                    return ServerResponse.ok()
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .header("X-API-Version", "1.0")
-                            .bodyValue(characterResponses);
-                })
-                .doOnError(e -> logger.error("Error al recuperar personajes", e));
+                .flatMap(list -> ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(list));
+    }
+
+    private CharacterResponse mapToPublicResponse(Character character) {
+        return new CharacterResponse(
+                character.getId(),
+                character.getName(),
+                character.getDescription(),
+                character.getDifficulty(),
+                character.getImageUrl(),
+                character.getGameImageUrl(),
+                character.getCost(),
+                character.getPowers(),
+                character.getPieces(),
+                false // todos como no desbloqueados
+        );
     }
 
     @Operation(

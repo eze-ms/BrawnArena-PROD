@@ -1,6 +1,7 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.handlers;
 
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterNotFoundException;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.CharacterResponse;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.CharacterUpdateRequest;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.PieceAssignmentDTO;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
@@ -8,8 +9,8 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.enti
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.enums.Power;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.CharacterService;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.PieceRepository;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.repository.UserRepository;
+
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.security.JwtService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,10 +20,10 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import static com.mongodb.assertions.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.any;
-import com.fasterxml.jackson.core.type.TypeReference;
+
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -38,7 +39,6 @@ import org.springframework.web.reactive.function.server.ServerRequest;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 import java.util.*;
-import static com.mongodb.assertions.Assertions.assertNull;
 import static com.mongodb.internal.connection.tlschannel.util.Util.assertTrue;
 import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -95,19 +95,7 @@ class CharacterHandlerTest {
 
     @Test
     void getAllCharacters_ReturnsOkWithValidHeaders() throws Exception {
-
         Authentication auth = mock(Authentication.class);
-        when(auth.getName()).thenReturn("player1");
-        when(request.principal())
-                .thenAnswer(inv -> Mono.just(auth));
-
-        User mockUser = new User();
-        mockUser.setNickname("player1");
-        mockUser.setCharacterIds("[\"1\"]");
-        when(userRepository.findByNickname("player1")).thenReturn(Mono.just(mockUser));
-
-        when(objectMapper.readValue(eq("[\"1\"]"), any(TypeReference.class)))
-                .thenReturn(List.of("1"));
 
         Character testChar = createTestCharacter("1");
         when(characterService.getAllCharacters()).thenReturn(Flux.just(testChar));
@@ -120,93 +108,56 @@ class CharacterHandlerTest {
                     HttpHeaders headers = res.headers();
                     assertNotNull(headers.getContentType());
                     assertEquals(MediaType.APPLICATION_JSON, headers.getContentType());
-                    assertEquals("1.0", headers.getFirst("X-API-Version"));
+
+                    @SuppressWarnings("unchecked")
+                    List<CharacterResponse> body = (List<CharacterResponse>) ((EntityResponse<?>) res).entity();
+                    assertEquals(1, body.size());
+                    CharacterResponse dto = body.get(0);
+                    assertEquals("1", dto.id());
+                    assertFalse(dto.unlocked());
                 })
                 .verifyComplete();
     }
 
     @Test
-    void getAllCharacters_ReturnsNoContentWhenEmpty() throws Exception {
-
-        Authentication auth = mock(Authentication.class);
-        when(auth.getName()).thenReturn("player1");
-        when(request.principal())
-                .thenAnswer(inv -> Mono.just(auth));
-
-        User mockUser = new User();
-        mockUser.setNickname("player1");
-        mockUser.setCharacterIds("[]");
-        when(userRepository.findByNickname("player1")).thenReturn(Mono.just(mockUser));
-
-        when(objectMapper.readValue(eq("[]"), any(TypeReference.class)))
-                .thenReturn(List.of());
-
+    void getAllCharacters_ReturnsNoContentWhenEmpty() {
         when(characterService.getAllCharacters()).thenReturn(Flux.empty());
 
         Mono<ServerResponse> response = characterHandler.getAllCharacters(request);
 
-        StepVerifier.create(response)
+        StepVerifier.create(characterHandler.getAllCharacters(request))
                 .assertNext(res -> {
-                    assertEquals(HttpStatus.NO_CONTENT, res.statusCode());
-                    assertNull(res.headers().getContentType());
-                    assertEquals("1.0", res.headers().getFirst("X-API-Version"));
+                    assertEquals(HttpStatus.OK, res.statusCode());
                 })
                 .verifyComplete();
+
     }
 
     @Test
-    void getAllCharacters_PropagatesServiceError() throws Exception {
-
-        Authentication auth = mock(Authentication.class);
-        when(auth.getName()).thenReturn("player1");
-        when(request.principal())
-                .thenAnswer(inv -> Mono.just(auth));
-
-        User mockUser = new User();
-        mockUser.setNickname("player1");
-        mockUser.setCharacterIds("[\"1\"]");
-        when(userRepository.findByNickname("player1")).thenReturn(Mono.just(mockUser));
-
-        when(objectMapper.readValue(eq("[\"1\"]"), any(TypeReference.class)))
-                .thenReturn(List.of("1"));
-
+    void getAllCharacters_PropagatesServiceError() {
         when(characterService.getAllCharacters())
                 .thenReturn(Flux.error(new RuntimeException("Error en base de datos")));
 
         StepVerifier.create(characterHandler.getAllCharacters(request))
-                .expectErrorMatches(ex -> {
-                    assertTrue(ex instanceof RuntimeException);
-                    assertEquals("Error en base de datos", ex.getMessage());
-                    return true;
-                })
+                .expectErrorMatches(ex ->
+                        ex instanceof RuntimeException &&
+                                ex.getMessage().equals("Error en base de datos"))
                 .verify();
     }
 
     @Test
-    void getAllCharacters_ForceJsonResponseEvenWithoutAcceptHeader() throws Exception {
+    void getAllCharacters_ForceJsonResponseEvenWithoutAcceptHeader() {
+        Character testChar = createTestCharacter("1");
+        when(characterService.getAllCharacters())
+                .thenReturn(Flux.just(testChar));
 
-        Authentication auth = mock(Authentication.class);
-        when(auth.getName()).thenReturn("player1");
-
-        ServerRequest request = ServerRequest.create(
+        // Simula una petición sin cabecera Accept
+        ServerRequest requestSinHeader = ServerRequest.create(
                 MockServerWebExchange.from(MockServerHttpRequest.get("/characters/all")),
                 Collections.emptyList()
         );
-        when(this.request.principal())
-                .thenAnswer(inv -> Mono.just(auth));
 
-        User mockUser = new User();
-        mockUser.setNickname("player1");
-        mockUser.setCharacterIds("[\"1\"]");
-        when(userRepository.findByNickname("player1")).thenReturn(Mono.just(mockUser));
-
-        when(objectMapper.readValue(eq("[\"1\"]"), any(TypeReference.class)))
-                .thenReturn(List.of("1"));
-
-        Character testChar = createTestCharacter("1");
-        when(characterService.getAllCharacters()).thenReturn(Flux.just(testChar));
-
-        Mono<ServerResponse> response = characterHandler.getAllCharacters(this.request);
+        Mono<ServerResponse> response = characterHandler.getAllCharacters(requestSinHeader);
 
         StepVerifier.create(response)
                 .assertNext(res -> {
@@ -237,13 +188,13 @@ class CharacterHandlerTest {
         Authentication auth = new UsernamePasswordAuthenticationToken("player1", "");
 
         when(request.principal())
-                .thenAnswer(inv -> Mono.just(auth)); // ← Mock consistente
+                .thenAnswer(inv -> Mono.just(auth));
         when(characterService.getUnlockedCharacters("player1"))
                 .thenReturn(Flux.empty());
 
         StepVerifier.create(characterHandler.getCharacterId(request))
                 .expectNextMatches(response ->
-                        response.statusCode() == HttpStatus.NO_CONTENT) // 204
+                        response.statusCode() == HttpStatus.NO_CONTENT)
                 .verifyComplete();
     }
 

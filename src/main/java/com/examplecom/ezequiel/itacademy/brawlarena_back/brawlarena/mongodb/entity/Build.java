@@ -5,9 +5,14 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import nonapi.io.github.classgraph.json.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.annotation.Transient;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.enums.Power;
+
+
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -30,4 +35,8 @@ public class Build {
 
     private boolean valid;
     private Instant createdAt;
+
+    @Transient
+    private Map<Power, Integer> powerProgress;
+
 }

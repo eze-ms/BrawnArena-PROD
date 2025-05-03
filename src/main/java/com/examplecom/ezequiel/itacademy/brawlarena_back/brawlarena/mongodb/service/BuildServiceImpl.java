@@ -5,6 +5,7 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.enti
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.logic.ScoreCalculator;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Build;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Piece;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.enums.Power;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.BuildRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
@@ -18,13 +19,10 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 
-import java.util.Optional;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.time.Instant;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 public class BuildServiceImpl implements BuildService {
@@ -136,6 +134,34 @@ public class BuildServiceImpl implements BuildService {
                 ));
     }
 
+    private Map<Power, Integer> evaluarProgresionDePoderes(List<Piece> piezasColocadas, List<String> idsColocados, List<Piece> piezasCorrectas) {
+        Map<Power, Integer> progresion = new EnumMap<>(Power.class);
+
+        for (Piece pieza : piezasColocadas) {
+            Power power = pieza.getPower();
+            if (power != null) {
+                progresion.merge(power, 33, Integer::sum);
+            }
+        }
+
+        Set<String> idsCorrectos = piezasCorrectas.stream()
+                .map(Piece::getId)
+                .collect(Collectors.toSet());
+
+        List<String> idsFallados = idsColocados.stream()
+                .filter(id -> !idsCorrectos.contains(id))
+                .toList();
+
+        for (Piece pieza : piezasCorrectas) {
+            if (pieza.getPower() != null && idsFallados.contains(pieza.getId())) {
+                progresion.merge(pieza.getPower(), -15, Integer::sum);
+            }
+        }
+
+        return progresion;
+    }
+
+
     @Override
     public Mono<Build> startBuild(String playerId, String characterId) {
         Mono<User> userMono = userRepository.findByNickname(playerId)
@@ -235,7 +261,13 @@ public class BuildServiceImpl implements BuildService {
                                                         piezasColocadas,
                                                         piezasCorrectas
                                                 )
-                                        );
+                                        )
+                                        .map(build -> {
+                                            Map<Power, Integer> powerProgress = evaluarProgresionDePoderes(piezasColocadas, piezasColocadasIds, piezasCorrectas);
+                                            build.setPowerProgress(powerProgress);
+                                            return build;
+                                        });
+
                             });
                 })
                 .doOnError(error -> {

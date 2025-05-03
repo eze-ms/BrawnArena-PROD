@@ -169,7 +169,7 @@ public class BuildHandler {
 
                                     logger.info("Solicitud recibida para validar build de jugador {}", playerId);
                                     return buildService.validateBuild(playerId, buildData)
-                                            .flatMap(result -> ServerResponse.ok().bodyValue(result));
+                                            .flatMap(dto -> ServerResponse.ok().bodyValue(dto));
                                 })
                 )
                 .doOnError(error -> logger.error("Error al validar build: {}", error.getMessage()));

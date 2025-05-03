@@ -164,7 +164,7 @@ class SecurityConfigIntegrationTest {
                         .build())
                 .header(HttpHeaders.AUTHORIZATION, fakeToken)
                 .exchange()
-                .expectStatus().is5xxServerError()
+                .expectStatus().isOk()
                 .expectBody()
                 .consumeWith(result -> System.out.println(new String(result.getResponseBody())));
 

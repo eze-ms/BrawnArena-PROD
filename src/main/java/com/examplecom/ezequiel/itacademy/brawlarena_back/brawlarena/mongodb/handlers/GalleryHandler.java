@@ -65,18 +65,15 @@ public class GalleryHandler {
             description = "Permite al jugador compartir un modelo completado en la galería pública. Requiere autenticación.",
             operationId = "shareModel",
             security = @SecurityRequirement(name = "bearerAuth"),
-            requestBody = @RequestBody(
-                    description = "ID del personaje completado que se quiere compartir",
-                    required = true,
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = String.class),
-                            examples = @ExampleObject(
-                                    name = "characterId",
-                                    value = "\"680743b8485a1c9f6c909003\""
-                            )
+            parameters = {
+                    @Parameter(
+                            name = "characterId",
+                            in = ParameterIn.QUERY,
+                            required = true,
+                            description = "ID del personaje completado que se quiere compartir",
+                            example = "680743b8485a1c9f6c909003"
                     )
-            )
+            }
     )
     @ApiResponses(
             value = {
@@ -107,15 +104,15 @@ public class GalleryHandler {
                 .switchIfEmpty(Mono.error(new UserNotFoundException("Autenticación requerida")))
                 .cast(Authentication.class)
                 .map(Authentication::getName)
-                .flatMap(playerId ->
-                        request.bodyToMono(String.class)
-                                .filter(StringUtils::hasText)
-                                .switchIfEmpty(Mono.error(new IllegalArgumentException("characterId no puede estar vacío")))
-                                .flatMap(characterId -> {
-                                    logger.info("Solicitud para compartir modelo: playerId={}, characterId={}", playerId, characterId);
-                                    return galleryService.shareModel(playerId, characterId);
-                                })
-                )
+                .flatMap(playerId -> {
+                    String characterId = request.queryParam("characterId").orElse(null);
+                    if (!StringUtils.hasText(characterId)) {
+                        return Mono.error(new IllegalArgumentException("characterId no puede estar vacío"));
+                    }
+
+                    logger.info("Solicitud para compartir modelo: playerId={}, characterId={}", playerId, characterId);
+                    return galleryService.shareModel(playerId, characterId);
+                })
                 .flatMap(shared -> {
                     logger.info("Modelo compartido exitosamente");
                     return ServerResponse.ok().bodyValue(shared);

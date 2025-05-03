@@ -53,7 +53,10 @@ public class SecurityConfig {
                         // Rutas públicas de lectura
                         .pathMatchers(HttpMethod.GET,
                                 "/gallery",
-                                "/gallery/highlighted"
+                                "/gallery/highlighted",
+                                "/gallery/public",
+                                "/characters/all"
+
                         ).permitAll()
 
                         // Rutas protegidas (modificación)
