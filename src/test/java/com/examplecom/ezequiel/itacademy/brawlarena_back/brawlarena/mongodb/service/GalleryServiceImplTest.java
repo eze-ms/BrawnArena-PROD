@@ -639,12 +639,12 @@ class GalleryServiceImplTest {
         StepVerifier.create(galleryService.deleteSharedModel(sharedModelId, requesterId, role))
                 .expectErrorMatches(ex ->
                         ex instanceof AccessDeniedException &&
-                                ex.getMessage().contains("No tienes permiso"))
+                                ex.getMessage().contains("Solo el administrador puede eliminar modelos compartidos"))
                 .verify();
     }
 
     @Test
-    void deleteSharedModel_autorDelModelo_eliminaCorrectamente() {
+    void deleteSharedModel_autorDelModeloConRolUser_lanzaAccessDeniedException() {
         String sharedModelId = "model1";
         String requesterId = "player1";
         String role = "USER";
@@ -656,18 +656,19 @@ class GalleryServiceImplTest {
         when(sharedModelRepository.findById(sharedModelId))
                 .thenReturn(Mono.just(modelo));
 
-        when(sharedModelRepository.delete(modelo))
-                .thenReturn(Mono.empty());
-
         StepVerifier.create(galleryService.deleteSharedModel(sharedModelId, requesterId, role))
-                .verifyComplete();
+                .expectErrorMatches(ex ->
+                        ex instanceof AccessDeniedException &&
+                                ex.getMessage().contains("Solo el administrador puede eliminar modelos compartidos"))
+                .verify();
     }
+
 
     @Test
     void deleteSharedModel_adminNoAutor_eliminaCorrectamente() {
         String sharedModelId = "model1";
         String requesterId = "adminUser";
-        String role = "ADMIN";
+        String role = "ROLE_ADMIN"; // ← adaptado
 
         SharedModel modelo = new SharedModel();
         modelo.setId(sharedModelId);
@@ -687,7 +688,7 @@ class GalleryServiceImplTest {
     void deleteSharedModel_errorAlEliminar_propagaExcepcion() {
         String sharedModelId = "model1";
         String requesterId = "player1";
-        String role = "USER";
+        String role = "ROLE_ADMIN"; // ← adaptado
 
         SharedModel modelo = new SharedModel();
         modelo.setId(sharedModelId);

@@ -76,10 +76,6 @@ public class CharacterServiceImpl implements CharacterService {
                                     .filter(s -> !s.isBlank())
                                     .toList())
                             .orElse(List.of());
-
-                    ids.forEach(id -> logger.info("ID deserializado: '{}'", id));
-
-                    logger.info("IDs que se intentan desbloquear: {}", ids);
                     logger.info("Buscando personajes desbloqueados para playerId: {}", playerId);
                     return characterRepository.findAll()
                             .filter(character -> ids.contains(character.getId()));

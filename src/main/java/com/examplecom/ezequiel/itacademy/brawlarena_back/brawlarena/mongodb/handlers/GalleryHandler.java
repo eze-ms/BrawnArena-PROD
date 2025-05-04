@@ -238,7 +238,7 @@ public class GalleryHandler {
                 .doOnNext(id -> logger.info("Solicitud para destacar modelo: sharedModelId={}", id))
                 .flatMap(galleryService::highlightModel)
                 .flatMap(updated -> {
-                    logger.info("Modelo destacado correctamente: {}", updated.getId());
+                    logger.info("🔔Modelo destacado correctamente: {}", updated.getId());
                     return ServerResponse.ok().bodyValue(updated);
                 })
                 .onErrorResume(ModelNotFoundException.class, e ->
@@ -302,6 +302,11 @@ public class GalleryHandler {
                 .flatMap(auth -> {
                     String requesterId = auth.getName();
                     String role = auth.getAuthorities().iterator().next().getAuthority();
+
+                    logger.info("🔍 ID del requester: {}", requesterId);
+                    logger.info("🔍 Rol recibido: {}", role);
+
+
                     return galleryService.deleteSharedModel(sharedModelId, requesterId, role);
                 })
                 .then(ServerResponse.noContent().build())

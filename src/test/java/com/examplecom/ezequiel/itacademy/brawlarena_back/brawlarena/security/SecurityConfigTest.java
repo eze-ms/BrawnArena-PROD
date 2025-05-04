@@ -226,12 +226,12 @@ class SecurityConfigIntegrationTest {
     }
 
     @Test
-    void deleteGalleryWithValidToken_shouldReturnOk() {
+    void deleteGalleryWithUserRole_shouldReturnForbidden() {
         String fakeToken = "Bearer faketoken123";
 
         Claims claims = Jwts.claims();
         claims.setSubject("player1");
-        claims.put("role", "USER");
+        claims.put("role", "ROLE_USER"); // ← adaptado
 
         when(jwtService.validateToken(anyString())).thenReturn(true);
         when(jwtService.getClaims(anyString())).thenReturn(claims);
@@ -241,13 +241,12 @@ class SecurityConfigIntegrationTest {
         model.setPlayerId("player1");
 
         when(sharedModelRepository.findById("model123")).thenReturn(Mono.just(model));
-        when(sharedModelRepository.delete(model)).thenReturn(Mono.empty());
 
         webTestClient.delete()
                 .uri("/gallery/model123")
                 .header(HttpHeaders.AUTHORIZATION, fakeToken)
                 .exchange()
-                .expectStatus().is2xxSuccessful();
+                .expectStatus().isForbidden();
     }
 
     @Test

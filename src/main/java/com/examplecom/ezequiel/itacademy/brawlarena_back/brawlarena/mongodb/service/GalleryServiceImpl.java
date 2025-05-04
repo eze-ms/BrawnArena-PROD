@@ -138,11 +138,11 @@ public class GalleryServiceImpl implements GalleryService{
         return sharedModelRepository.findById(sharedModelId)
                 .switchIfEmpty(Mono.error(new ModelNotFoundException("Modelo compartido no encontrado: " + sharedModelId)))
                 .flatMap(model -> {
-            if (!model.getPlayerId().equals(requesterId) && !"ADMIN".equalsIgnoreCase(role)) {
-                return Mono.error(new AccessDeniedException("No tienes permiso para eliminar este modelo"));
+                    if (!"ROLE_ADMIN".equalsIgnoreCase(role)) {
+                        return Mono.error(new AccessDeniedException("Solo el administrador puede eliminar modelos compartidos"));
+                    }
 
-            }
-            return sharedModelRepository.delete(model) // Alternativa a deleteById
+                    return sharedModelRepository.delete(model) // Alternativa a deleteById
                     .doOnSuccess(v -> logger.info("Modelo {} eliminado por {}(Role={})", sharedModelId, requesterId, role));
         });
     }
