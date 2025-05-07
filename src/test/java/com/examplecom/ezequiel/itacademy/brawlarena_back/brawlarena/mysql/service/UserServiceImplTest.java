@@ -68,15 +68,15 @@ class UserServiceImplTest {
     }
 
     @Test
-    void findByNickname_WhenUserNotExists_ThrowsException() {
+    void findByNickname_WhenUserNotExists_ReturnsEmpty() {
         // Arrange
         String nickname = "unknownUser";
         when(userRepository.findByNickname(nickname)).thenReturn(Mono.empty());
 
         // Act & Assert
         StepVerifier.create(userService.findByNickname(nickname))
-                .expectError(UserNotFoundException.class)
-                .verify();
+                .expectNextCount(0)
+                .verifyComplete();
     }
 
     @Test

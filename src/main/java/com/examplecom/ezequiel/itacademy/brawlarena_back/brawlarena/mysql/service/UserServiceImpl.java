@@ -45,10 +45,11 @@ public class UserServiceImpl implements UserService {
     @Override
     public Mono<User> findByNickname(String nickname) {
         return userRepository.findByNickname(nickname)
-                .switchIfEmpty(Mono.error(new UserNotFoundException("Usuario no encontrado.")))
+                .switchIfEmpty(Mono.empty())
                 .doOnNext(user -> logger.info("Usuario encontrado: {}", user))
                 .doOnError(e -> logger.error("Error al buscar usuario: {}", e.getMessage()));
     }
+
 
     @Override
     public Mono<User> save(User user) {
