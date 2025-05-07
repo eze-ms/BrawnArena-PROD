@@ -1,31 +1,39 @@
 # Brawl Arena
 
-## 📄 Description
-This exercise in Java involves creating a `Person` class with attributes like name, surname, and age. The `GenericMethods` class contains a generic method that accepts a variable number of arguments of any type. The method returns an array of these arguments, which are printed in a readable format using `Arrays.stream()`.
+## 📄 Descripción
+Brawl Arena es una aplicación web interactiva inspirada en Thetan Arena y LEGO, donde los jugadores montan personajes modulares en 3D, tipo puzzle, desbloqueando poderes y compitiendo por tiempo y precisión. Incluye una galería pública de modelos, puntuaciones y recompensas mediante tokens.
 
-### Functionality
-1. **Person Class:**
-    - Stores `name`, `surname`, and `age`.
-    - Implements a `toString()` method for easy display.
-2. **Generic Method:**
-    - Accepts a variable number of arguments of any type and returns them as an array.
-3. **Array Stream:**
-    - Uses `Arrays.stream()` to print each argument in a readable format.
+### Funcionalidades
+- Registro/Login con nickname y contraseña.
+- Montaje de personajes por piezas (con piezas falsas y especiales).
+- Desbloqueo de personajes mediante tokens.
+- Activación de poderes según las piezas colocadas.
+- Compartición de modelos completados.
+- Visualización de una galería pública de modelos compartidos.
+- Gestión administrativa: destacar modelos, otorgar tokens y eliminar personajes.
+- Estética cartoon/3D con efectos visuales y animaciones.
+---
+
+## 💻 Tecnologías utilizadas
+- **Frontend:** React + TypeScript + TailwindCSS
+
+- **Backend:** Java 17 + Spring Boot + Spring WebFlux (reactivo)
+
+- **Autenticación:** JWT
+
+- **Base de datos:** MongoDB y MySQL
+
+- **Imagen generativa:** Integración futura con IA para variaciones visuales.
 
 ---
 
-## 💻 Technologies Used
-- **Java 17**
-- **IDE Recommended:** IntelliJ IDEA or any Java-compatible IDE.
+## 📋 Requisitos
+- **Java Development:** Version 17 or higher.
+- - **Node.js :** Version 18 or higher.
 
 ---
 
-## 📋 Requirements
-- **Java Development Kit (JDK):** Version 17 or higher.
-
----
-
-## 🛠️ Installation
+## 🛠️ Instalación
 1. Clone the repository:
    ```bash
-   git clone https://github.com/eze-ms/Java-Generics-N2-E2
+   git clone https://github.com/eze-ms/BrawArena-back
