@@ -28,12 +28,12 @@ Brawl Arena es una aplicación web interactiva inspirada en Thetan Arena y LEGO,
 ---
 
 ## 📋 Requisitos
-- **Java Development:** Version 17 or higher.
-- **Node.js :** Version 18 or higher.
+- **Java Development:** Version 17 o superior.
+- **Node.js :** Version 18 o superior.
 
 ---
 
 ## 🛠️ Instalación
-1. Clone the repository:
+1. Clonar repositorio:
    ```bash
    git clone https://github.com/eze-ms/BrawArena-back
