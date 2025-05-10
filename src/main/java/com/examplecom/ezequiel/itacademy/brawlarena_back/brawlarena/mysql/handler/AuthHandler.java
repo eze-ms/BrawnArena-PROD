@@ -20,8 +20,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -90,35 +88,25 @@ public class AuthHandler {
     public Mono<ServerResponse> registerUser(ServerRequest request) {
         return request.bodyToMono(User.class)
                 .flatMap(user ->
-                        request.exchange().getPrincipal()
-                                .defaultIfEmpty(() -> "sin principal")
-                                .cast(Authentication.class)
-                                .map(Authentication::getName)
-                                .defaultIfEmpty("anónimo")
-                                .flatMap(nombre -> {
-                                    logger.info("Autenticación en registerUser: {}", nombre);
-
-                                    return characterRepository.findAll()
-                                            .retryWhen(reactor.util.retry.Retry.fixedDelay(3, Duration.ofMillis(300)))
-                                            .filter(character -> character.getCost() == 0)
-                                            .map(Character::getId)
-                                            .collectList()
-                                            .flatMap(freeIds -> {
-                                                try {
-                                                    ObjectMapper mapper = new ObjectMapper();
-                                                    user.setCharacterIds(mapper.writeValueAsString(freeIds));
-                                                } catch (Exception e) {
-                                                    return Mono.error(new RuntimeException("Error serializando personajes gratuitos"));
-                                                }
-                                                return userService.save(user);
-                                            });
+                        characterRepository.findAll()
+                                .retryWhen(reactor.util.retry.Retry.fixedDelay(3, Duration.ofMillis(300)))
+                                .filter(character -> character.getCost() == 0)
+                                .map(Character::getId)
+                                .collectList()
+                                .flatMap(freeIds -> {
+                                    try {
+                                        ObjectMapper objectMapper = new ObjectMapper();
+                                        user.setCharacterIds(objectMapper.writeValueAsString(freeIds));
+                                    } catch (Exception e) {
+                                        return Mono.error(new RuntimeException("Error al preparar el registro del usuario"));
+                                    }
+                                    return userService.save(user);
                                 })
                 )
                 .flatMap(savedUser -> ServerResponse.status(HttpStatus.CREATED).bodyValue(savedUser))
                 .onErrorResume(e -> ServerResponse.status(HttpStatus.CONFLICT)
                         .bodyValue("El nickname ya está en uso."));
     }
-
 
 
     @Operation(
