@@ -90,7 +90,7 @@ public class AuthHandler {
                         characterRepository.findAll()
                                 .doOnNext(character -> logger.info("Personaje encontrado en registro: {} (coste: {})", character.getName(), character.getCost()))
                                 .filter(character -> character.getCost() == 0)
-                                .map(character -> character.getId())
+                                .map(Character::getId)
                                 .collectList()
                                 .doOnNext(freeIds -> logger.info("IDs de personajes gratuitos encontrados: {}", freeIds))
                                 .flatMap(freeIds -> {
@@ -101,10 +101,14 @@ public class AuthHandler {
                                         logger.error("Error al serializar personajes gratuitos: {}", e.getMessage());
                                         return Mono.error(new RuntimeException("Error al preparar el registro del usuario"));
                                     }
+
+                                    // Log seguro (copia defensiva)
+                                    String ids = user.getCharacterIds();
+                                    logger.info("Valor final de characterIds antes de guardar: {}", ids);
+
                                     return userService.save(user);
                                 })
                 )
-
                 .doOnNext(savedUser -> logger.info("Usuario registrado exitosamente: {}", savedUser))
                 .flatMap(savedUser -> ServerResponse.status(HttpStatus.CREATED).bodyValue(savedUser))
                 .doOnError(e -> logger.error("Error al registrar el usuario: {}", e.getMessage()))
