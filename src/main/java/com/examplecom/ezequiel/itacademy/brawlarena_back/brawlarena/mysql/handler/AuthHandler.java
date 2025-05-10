@@ -99,13 +99,10 @@ public class AuthHandler {
                                     ObjectMapper objectMapper = new ObjectMapper();
                                     String characterIdsJson = objectMapper.writeValueAsString(freeIds);
 
-                                    User newUser = User.builder()
-                                            .nickname(nickname)
-                                            .password(password)
-                                            .tokens(50)
-                                            .role("USER")
-                                            .characterIds(characterIdsJson)
-                                            .build();
+                                    User newUser = new User();
+                                    newUser.setNickname(nickname);
+                                    newUser.setPassword(password); // sin codificar aún
+                                    newUser.setCharacterIds(characterIdsJson);
 
                                     return userService.save(newUser);
                                 } catch (Exception e) {

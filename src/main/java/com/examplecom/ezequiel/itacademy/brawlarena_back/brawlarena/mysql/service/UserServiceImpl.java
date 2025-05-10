@@ -60,11 +60,17 @@ public class UserServiceImpl implements UserService {
                 })
                 .switchIfEmpty(Mono.defer(() -> {
                     logger.info("Registrando nuevo usuario: {}", user.getNickname());
+
+                    user.setPassword(passwordEncoder.encode(user.getPassword()));  // Aquí se hashea
+                    user.setRole("USER");
+                    user.setTokens(50);
+
                     return userRepository.save(user);
                 }))
-                .doOnNext(savedUser -> logger.info("Usuario guardado: {}", savedUser))
+                .doOnNext(savedUser -> logger.info("Usuario guardado: {}", savedUser.getNickname()))
                 .doOnError(e -> logger.error("Error al registrar el usuario: {}", e.getMessage()));
     }
+
 
     @Override
     public Mono<User> updateTokens(String nickname, int newTokens) {
