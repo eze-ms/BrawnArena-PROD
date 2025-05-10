@@ -70,7 +70,6 @@ public class UserServiceImpl implements UserService {
                 .doOnError(e -> logger.error("Error al registrar el usuario: {}", e.getMessage()));
     }
 
-
     @Override
     public Mono<User> updateTokens(String nickname, int newTokens) {
         return userRepository.findByNickname(nickname)

@@ -88,6 +88,11 @@ public class AuthHandler {
                 .doOnNext(user -> logger.info("Registrando nuevo usuario: {}", user))
                 .flatMap(user ->
                         characterRepository.findAll()
+                                .doOnSubscribe(sub -> logger.info("Iniciando lectura de personajes desde Mongo"))
+                                .switchIfEmpty(Flux.defer(() -> {
+                                    logger.warn("Mongo devolvió vacío en registerUser");
+                                    return Flux.empty();
+                                }))
                                 .doOnNext(character -> logger.info("Personaje encontrado en registro: {} (coste: {})", character.getName(), character.getCost()))
                                 .filter(character -> character.getCost() == 0)
                                 .map(Character::getId)
@@ -102,14 +107,13 @@ public class AuthHandler {
                                         return Mono.error(new RuntimeException("Error al preparar el registro del usuario"));
                                     }
 
-                                    // Log seguro (copia defensiva)
                                     String ids = user.getCharacterIds();
                                     logger.info("Valor final de characterIds antes de guardar: {}", ids);
 
                                     return userService.save(user);
                                 })
                 )
-                .doOnNext(savedUser -> logger.info("Usuario registrado exitosamente: {}", savedUser))
+                .doOnNext(savedUser -> logger.info("Usuario registrado exitosamente: {}", savedUser.getNickname()))
                 .flatMap(savedUser -> ServerResponse.status(HttpStatus.CREATED).bodyValue(savedUser))
                 .doOnError(e -> logger.error("Error al registrar el usuario: {}", e.getMessage()))
                 .onErrorResume(e -> ServerResponse.status(HttpStatus.CONFLICT)
