@@ -84,33 +84,27 @@ public class AuthHandler {
             }
     )
     public Mono<ServerResponse> registerUser(ServerRequest request) {
-        return request.bodyToMono(LoginRequest.class)
+        return request.bodyToMono(User.class)
                 .doOnNext(user -> logger.info("Registrando nuevo usuario: {}", user))
-                .flatMap(dto -> {
-                    String nickname = dto.nickname();
-                    String password = dto.password();
+                .flatMap(user ->
+                        characterRepository.findAll()
+                                .doOnNext(character -> logger.info("Personaje encontrado en registro: {} (coste: {})", character.getName(), character.getCost()))
+                                .filter(character -> character.getCost() == 0)
+                                .map(character -> character.getId())
+                                .collectList()
+                                .doOnNext(freeIds -> logger.info("IDs de personajes gratuitos encontrados: {}", freeIds))
+                                .flatMap(freeIds -> {
+                                    try {
+                                        ObjectMapper objectMapper = new ObjectMapper();
+                                        user.setCharacterIds(objectMapper.writeValueAsString(freeIds));
+                                    } catch (Exception e) {
+                                        logger.error("Error al serializar personajes gratuitos: {}", e.getMessage());
+                                        return Mono.error(new RuntimeException("Error al preparar el registro del usuario"));
+                                    }
+                                    return userService.save(user);
+                                })
+                )
 
-                    return characterRepository.findAll()
-                            .filter(character -> character.getCost() == 0)
-                            .map(Character::getId)
-                            .collectList()
-                            .flatMap(freeIds -> {
-                                try {
-                                    ObjectMapper objectMapper = new ObjectMapper();
-                                    String characterIdsJson = objectMapper.writeValueAsString(freeIds);
-
-                                    User newUser = new User();
-                                    newUser.setNickname(nickname);
-                                    newUser.setPassword(password); // sin codificar aún
-                                    newUser.setCharacterIds(characterIdsJson);
-
-                                    return userService.save(newUser);
-                                } catch (Exception e) {
-                                    logger.error("Error al serializar personajes gratuitos: {}", e.getMessage());
-                                    return Mono.error(new RuntimeException("Error al preparar el registro del usuario"));
-                                }
-                            });
-                })
                 .doOnNext(savedUser -> logger.info("Usuario registrado exitosamente: {}", savedUser))
                 .flatMap(savedUser -> ServerResponse.status(HttpStatus.CREATED).bodyValue(savedUser))
                 .doOnError(e -> logger.error("Error al registrar el usuario: {}", e.getMessage()))

@@ -50,7 +50,6 @@ public class UserServiceImpl implements UserService {
                 .doOnError(e -> logger.error("Error al buscar usuario: {}", e.getMessage()));
     }
 
-
     @Override
     public Mono<User> save(User user) {
         return userRepository.findByNickname(user.getNickname())
@@ -61,11 +60,11 @@ public class UserServiceImpl implements UserService {
                 .switchIfEmpty(Mono.defer(() -> {
                     logger.info("Registrando nuevo usuario: {}", user.getNickname());
 
-                    user.setPassword(passwordEncoder.encode(user.getPassword()));  // Aquí se hashea
+                    user.setPassword(passwordEncoder.encode(user.getPassword()));
                     user.setRole("USER");
                     user.setTokens(50);
 
-                    return userRepository.save(user);
+                    return userRepository.save(user); // characterIds ya viene seteado correctamente
                 }))
                 .doOnNext(savedUser -> logger.info("Usuario guardado: {}", savedUser.getNickname()))
                 .doOnError(e -> logger.error("Error al registrar el usuario: {}", e.getMessage()));
