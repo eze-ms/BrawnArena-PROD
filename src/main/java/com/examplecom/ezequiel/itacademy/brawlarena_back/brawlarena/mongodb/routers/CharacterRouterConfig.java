@@ -25,6 +25,8 @@ public class CharacterRouterConfig {
                 .POST("/characters/{id}/pieces", characterHandler::assignPiecesToCharacter)
                 .POST("/characters/{id}/pieces-with-powers", characterHandler::assignPiecesWithPowers)
                 .GET("/mongo/test", characterHandler::testMongoConnection)
+                .GET("/mongo/free-characters", characterHandler::getFreeCharacters)
+
                 .build();
     }
 }

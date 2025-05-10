@@ -48,7 +48,9 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/webjars/**",
                                 "/v3/api-docs/**",
-                                "/mongo/test"
+                                "/mongo/test",
+                                "/mongo/free-characters"
+
                         ).permitAll()
 
                         // Rutas públicas de lectura

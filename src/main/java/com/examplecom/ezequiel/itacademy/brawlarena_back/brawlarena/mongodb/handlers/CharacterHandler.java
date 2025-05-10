@@ -73,7 +73,6 @@ public class CharacterHandler {
         );
     }
 
-
     public Mono<ServerResponse> getAllCharacters(ServerRequest request) {
         return characterService.getAllCharacters()
                 .map(this::mapToPublicResponse)
@@ -98,7 +97,6 @@ public class CharacterHandler {
         );
     }
 
-
     public Mono<ServerResponse> getCharacterId(ServerRequest request) {
         return request.principal()
                 .cast(Authentication.class)
@@ -115,7 +113,6 @@ public class CharacterHandler {
                             });
                 });
     }
-
 
     public Mono<ServerResponse> unlockCharacter(ServerRequest request) {
         String characterId = request.queryParam("characterId")
@@ -142,7 +139,6 @@ public class CharacterHandler {
                 });
     }
 
-
     public Mono<ServerResponse> getCharacterDetail(ServerRequest request) {
         String characterId = request.pathVariable("id");
         logger.info("Solicitud recibida: detalles del personaje con ID {}", characterId);
@@ -150,7 +146,6 @@ public class CharacterHandler {
         return characterService.getCharacterDetail(characterId)
                 .flatMap(character -> ServerResponse.ok().bodyValue(character));
     }
-
 
     public Mono<ServerResponse> updateCharacter(ServerRequest request) {
         String characterId = request.pathVariable("id");
@@ -165,7 +160,6 @@ public class CharacterHandler {
                 .doOnSubscribe(sub -> logger.info("Solicitud de actualización recibida para personaje {}", characterId))
                 .doOnError(error -> logger.error("Error al actualizar personaje {}: {}", characterId, error.getMessage()));
     }
-
 
     public Mono<ServerResponse> assignPiecesToCharacter(ServerRequest request) {
         String characterId = request.pathVariable("id");
@@ -187,7 +181,6 @@ public class CharacterHandler {
                     }
                 });
     }
-
 
     public Mono<ServerResponse> assignPiecesWithPowers(ServerRequest request) {
         String characterId = request.pathVariable("id");
@@ -243,6 +236,13 @@ public class CharacterHandler {
                     logger.error("Error al conectar con Mongo: {}", e.getMessage());
                     return ServerResponse.status(500).bodyValue("Error al conectar con Mongo");
                 });
+    }
+
+    public Mono<ServerResponse> getFreeCharacters(ServerRequest request) {
+        return characterRepository.findAll()
+                .filter(c -> c.getCost() == 0)
+                .collectList()
+                .flatMap(list -> ServerResponse.ok().bodyValue(list));
     }
 
 }
