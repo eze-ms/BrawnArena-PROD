@@ -101,6 +101,7 @@ public class AuthHandler {
                                         logger.error("Error al serializar personajes gratuitos: {}", e.getMessage());
                                         return Mono.error(new RuntimeException("Error al preparar el registro del usuario"));
                                     }
+                                    logger.info("Valor final de characterIds antes de guardar: {}", user.getCharacterIds());
                                     return userService.save(user);
                                 })
                 )
