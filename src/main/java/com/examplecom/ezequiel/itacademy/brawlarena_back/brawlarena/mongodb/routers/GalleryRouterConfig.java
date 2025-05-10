@@ -1,18 +1,13 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.routers;
 
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.handlers.GalleryHandler;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springdoc.core.annotations.RouterOperation;
-import org.springdoc.core.annotations.RouterOperations;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.RouterFunctions;
 import org.springframework.web.reactive.function.server.ServerResponse;
 
 @Configuration
-@Tag(name = "gallery", description = "Endpoints para gestionar los personajes compartidos")
 public class GalleryRouterConfig {
 
     @Bean
