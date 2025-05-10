@@ -27,6 +27,7 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.Map;
 
 @Component
@@ -86,41 +87,27 @@ public class AuthHandler {
     )
     public Mono<ServerResponse> registerUser(ServerRequest request) {
         return request.bodyToMono(User.class)
-                .doOnNext(user -> logger.info("Registrando nuevo usuario: {}", user))
                 .flatMap(user ->
                         characterRepository.findAll()
-                                .doOnSubscribe(sub -> logger.info("Iniciando lectura de personajes desde Mongo"))
-                                .switchIfEmpty(Flux.defer(() -> {
-                                    logger.warn("Mongo devolvió vacío en registerUser");
-                                    return Flux.empty();
-                                }))
-                                .doOnNext(character -> logger.info("Personaje encontrado en registro: {} (coste: {})", character.getName(), character.getCost()))
+                                .retryWhen(reactor.util.retry.Retry.fixedDelay(3, Duration.ofMillis(300)))
                                 .filter(character -> character.getCost() == 0)
                                 .map(Character::getId)
                                 .collectList()
-                                .doOnNext(freeIds -> logger.info("IDs de personajes gratuitos encontrados: {}", freeIds))
                                 .flatMap(freeIds -> {
                                     try {
                                         ObjectMapper objectMapper = new ObjectMapper();
                                         user.setCharacterIds(objectMapper.writeValueAsString(freeIds));
                                     } catch (Exception e) {
-                                        logger.error("Error al serializar personajes gratuitos: {}", e.getMessage());
                                         return Mono.error(new RuntimeException("Error al preparar el registro del usuario"));
                                     }
-
-                                    String ids = user.getCharacterIds();
-                                    logger.info("Valor final de characterIds antes de guardar: {}", ids);
-
                                     return userService.save(user);
                                 })
                 )
-                .doOnNext((User savedUser) -> logger.info("Usuario registrado exitosamente: {}", savedUser.getNickname()))
-
                 .flatMap(savedUser -> ServerResponse.status(HttpStatus.CREATED).bodyValue(savedUser))
-                .doOnError(e -> logger.error("Error al registrar el usuario: {}", e.getMessage()))
                 .onErrorResume(e -> ServerResponse.status(HttpStatus.CONFLICT)
                         .bodyValue("El nickname ya está en uso."));
     }
+
 
     @Operation(
             summary = "Login de usuario",
