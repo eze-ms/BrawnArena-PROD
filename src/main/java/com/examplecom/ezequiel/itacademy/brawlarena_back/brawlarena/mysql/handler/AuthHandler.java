@@ -24,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Map;
@@ -113,7 +114,8 @@ public class AuthHandler {
                                     return userService.save(user);
                                 })
                 )
-                .doOnNext(savedUser -> logger.info("Usuario registrado exitosamente: {}", savedUser.getNickname()))
+                .doOnNext((User savedUser) -> logger.info("Usuario registrado exitosamente: {}", savedUser.getNickname()))
+
                 .flatMap(savedUser -> ServerResponse.status(HttpStatus.CREATED).bodyValue(savedUser))
                 .doOnError(e -> logger.error("Error al registrar el usuario: {}", e.getMessage()))
                 .onErrorResume(e -> ServerResponse.status(HttpStatus.CONFLICT)
