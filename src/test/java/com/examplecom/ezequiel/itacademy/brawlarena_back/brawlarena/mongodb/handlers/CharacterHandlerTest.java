@@ -7,6 +7,7 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Piece;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.enums.Power;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.CharacterService;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.PieceRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.repository.UserRepository;
@@ -66,12 +67,15 @@ class CharacterHandlerTest {
     @Mock
     private ServerRequest request;
 
+    @Mock
+    private CharacterRepository characterRepository;
+
     private CharacterHandler characterHandler;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        characterHandler = new CharacterHandler(characterService, jwtService, userRepository, objectMapper, pieceRepository);
+        characterHandler = new CharacterHandler(characterService, jwtService, userRepository, objectMapper, pieceRepository, characterRepository );
     }
 
     private Character createTestCharacter(String id) {
