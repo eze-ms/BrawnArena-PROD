@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import nonapi.io.github.classgraph.json.Id;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 
@@ -30,7 +30,7 @@ public class Character {
     @JsonDeserialize(contentUsing = PowerDeserializer.class)
     private List<Power> powers;
     private String imageUrl;
-    private int cost;
+    private Integer cost;
     private String gameImageUrl;
 
 }
