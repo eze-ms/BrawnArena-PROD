@@ -49,7 +49,6 @@ public class SecurityConfig {
                                 "/webjars/**",
                                 "/v3/api-docs/**",
                                 "/mongo/test"
-
                         ).permitAll()
 
                         // Rutas públicas de lectura
@@ -58,7 +57,6 @@ public class SecurityConfig {
                                 "/gallery/highlighted",
                                 "/gallery/public",
                                 "/characters/all"
-
                         ).permitAll()
 
                         // Rutas protegidas (modificación)

@@ -17,34 +17,6 @@ import static org.springframework.web.reactive.function.server.RouterFunctions.r
 public class UserRouterConfig {
 
     @Bean
-    @RouterOperations({
-            @RouterOperation(
-                    path = "/users/me",
-                    method = RequestMethod.GET,
-                    beanClass = UserHandler.class,
-                    beanMethod = "getCurrentUser"
-            ),
-
-            @RouterOperation(
-                    path = "/users/me/tokens",
-                    method = RequestMethod.PUT,
-                    beanClass = UserHandler.class,
-                    beanMethod = "updateUserTokens"
-            ),
-            @RouterOperation(
-                    path = "/users/me/gallery",
-                    method = RequestMethod.GET,
-                    beanClass = UserHandler.class,
-                    beanMethod = "getUserGallery"
-            ),
-            @RouterOperation(
-                    path = "/users/me/gallery",
-                    method = RequestMethod.POST,
-                    beanClass = UserHandler.class,
-                    beanMethod = "addCharacterId"
-            )
-
-    })
     public RouterFunction<ServerResponse> userRoutes(UserHandler handler) {
         return route()
                 .GET("/users/me", handler::getCurrentUser)

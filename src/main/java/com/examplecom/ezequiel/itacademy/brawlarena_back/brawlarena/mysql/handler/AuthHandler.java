@@ -9,14 +9,6 @@ import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.servic
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.security.JwtService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -46,44 +38,6 @@ public class AuthHandler {
         this.characterRepository = characterRepository;
     }
 
-    @Operation(
-            summary = "Registro de usuario",
-            description = "Registra un nuevo usuario con nickname y contraseña. Devuelve el usuario creado si el registro es exitoso. Falla si el nickname ya existe.",
-            operationId = "registerUser",
-            requestBody = @RequestBody(
-                    description = "Datos del nuevo usuario a registrar: nickname y contraseña",
-                    required = true,
-                    content = @Content(
-                            schema = @Schema(implementation = LoginRequest.class),
-                            examples = @ExampleObject(
-                                    name = "Ejemplo Registro",
-                                    value = """
-                {
-                  "nickname": "nuevoUsuario",
-                  "password": "miPassword123"
-                }
-                """
-                            )
-                    )
-            )
-    )
-    @ApiResponses(
-            value = {
-                    @ApiResponse(
-                            responseCode = "201",
-                            description = "Registro exitoso",
-                            content = @Content(schema = @Schema(implementation = User.class))
-                    ),
-                    @ApiResponse(
-                            responseCode = "400",
-                            description = "Datos inválidos"
-                    ),
-                    @ApiResponse(
-                            responseCode = "409",
-                            description = "Nickname ya existe"
-                    )
-            }
-    )
     public Mono<ServerResponse> registerUser(ServerRequest request) {
         return request.bodyToMono(User.class)
                 .flatMap(user ->
@@ -107,45 +61,6 @@ public class AuthHandler {
                         .bodyValue("El nickname ya está en uso."));
     }
 
-
-    @Operation(
-            summary = "Login de usuario",
-            description = "Autentica un usuario por nickname y contraseña. Devuelve un JWT si las credenciales son correctas.",
-            operationId = "loginUser",
-            requestBody = @RequestBody(
-                    description = "Credenciales del usuario para autenticación",
-                    required = true,
-                    content = @Content(
-                            schema = @Schema(implementation = LoginRequest.class),
-                            examples = @ExampleObject(
-                                    name = "Ejemplo Login",
-                                    value = """
-                {
-                  "nickname": "jugador1",
-                  "password": "miPassword123"
-                }
-                """
-                            )
-                    )
-            )
-    )
-    @ApiResponses(
-            value = {
-                    @ApiResponse(
-                            responseCode = "200",
-                            description = "Login exitoso, JWT devuelto",
-                            content = @Content(schema = @Schema(type = "string", example = "eyJhbGciOiJIUzI1NiJ9..."))
-                    ),
-                    @ApiResponse(
-                            responseCode = "404",
-                            description = "Jugador no encontrado"
-                    ),
-                    @ApiResponse(
-                            responseCode = "400",
-                            description = "Datos inválidos"
-                    )
-            }
-    )
     public Mono<ServerResponse> loginUser(ServerRequest request) {
         return request.bodyToMono(LoginRequest.class)
                 .doOnNext(login -> logger.info("Intento de login: {}", login.nickname()))
@@ -181,27 +96,6 @@ public class AuthHandler {
                 });
     }
 
-    @Operation(
-            summary = "Verificación de token",
-            description = "Verifica la validez del token JWT enviado en la cabecera 'Authorization'. Devuelve los datos mínimos del usuario autenticado (nickname, rol) si el token es válido.",
-            security = @SecurityRequirement(name = "bearerAuth"),
-            operationId = "validateToken"
-    )
-    @ApiResponses(
-            value = {
-                    @ApiResponse(
-                            responseCode = "200",
-                            description = "Token válido",
-                            content = @Content(
-                                    schema = @Schema(type = "object", example = "{ \"valid\": true, \"nickname\": \"Ezequiel\", \"role\": \"USER\" }")
-                            )
-                    ),
-                    @ApiResponse(
-                            responseCode = "400",
-                            description = "Datos inválidos"
-                    )
-            }
-    )
     public Mono<ServerResponse> validateToken(ServerRequest request) {
         return Mono.justOrEmpty(request.headers().firstHeader("Authorization"))
                 .doOnNext(header -> logger.info("Validando token recibido"))

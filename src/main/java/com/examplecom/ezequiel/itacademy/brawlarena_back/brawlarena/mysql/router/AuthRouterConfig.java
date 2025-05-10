@@ -18,27 +18,6 @@ import static org.springframework.web.reactive.function.server.RouterFunctions.r
 public class AuthRouterConfig {
 
     @Bean
-    @RouterOperations({
-            @RouterOperation(
-                    path = "/auth/register",
-                    method = RequestMethod.POST,
-                    beanClass = AuthHandler.class,
-                    beanMethod = "registerUser"
-            ),
-            @RouterOperation(
-                    path = "/auth/login",
-                    method = RequestMethod.POST,
-                    beanClass = AuthHandler.class,
-                    beanMethod = "loginUser"
-            ),
-            @RouterOperation(
-                    path = "/auth/validate",
-                    method = RequestMethod.GET,
-                    beanClass = AuthHandler.class,
-                    beanMethod = "validateToken"
-            )
-    })
-
     public RouterFunction<ServerResponse> authRoutes(AuthHandler handler) {
         return route()
                 .POST("/auth/register", handler::registerUser)

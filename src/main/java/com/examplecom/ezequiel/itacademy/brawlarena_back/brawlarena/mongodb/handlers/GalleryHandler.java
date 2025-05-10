@@ -3,16 +3,6 @@ package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.han
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.*;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.SharedModel;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.GalleryService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -34,23 +24,6 @@ public class GalleryHandler {
         this.galleryService = galleryService;
     }
 
-    @Operation(
-            summary = "Obtener galería pública",
-            description = "Devuelve la lista de todos los modelos compartidos públicamente por los jugadores.",
-            security = @SecurityRequirement(name = "bearerAuth"),
-            operationId = "getPublicGallery"
-    )
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Modelos compartidos obtenidos correctamente",
-                    content = @Content(schema = @Schema(implementation = SharedModel.class))
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Error interno al recuperar la galería"
-            )
-    })
     public Mono<ServerResponse> getPublicGallery(ServerRequest request) {
         logger.info("Solicitud recibida: obtener galería pública de modelos compartidos");
 
@@ -60,45 +33,6 @@ public class GalleryHandler {
                 .doOnError(error -> logger.error("Error al procesar galería pública: {}", error.getMessage()));
     }
 
-    @Operation(
-            summary = "Compartir modelo completado",
-            description = "Permite al jugador compartir un modelo completado en la galería pública. Requiere autenticación.",
-            operationId = "shareModel",
-            security = @SecurityRequirement(name = "bearerAuth"),
-            parameters = {
-                    @Parameter(
-                            name = "characterId",
-                            in = ParameterIn.QUERY,
-                            required = true,
-                            description = "ID del personaje completado que se quiere compartir",
-                            example = "680743b8485a1c9f6c909003"
-                    )
-            }
-    )
-    @ApiResponses(
-            value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Modelo compartido correctamente",
-                    content = @Content(schema = @Schema(implementation = SharedModel.class))
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Datos inválidos o modelo no completado"
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Autenticación requerida"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Build válido no encontrado"
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Error interno al compartir modelo"
-            )
-    })
     public Mono<ServerResponse> shareModel(ServerRequest request) {
         return request.principal()
                 .switchIfEmpty(Mono.error(new UserNotFoundException("Autenticación requerida")))
@@ -119,26 +53,6 @@ public class GalleryHandler {
                 });
     }
 
-    @Operation(
-            summary = "Obtener modelo destacado",
-            description = "Devuelve el modelo compartido que ha sido marcado como destacado (Jugador de la Semana).",
-            operationId = "getHighlightedModel"
-    )
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Modelo destacado obtenido correctamente",
-                    content = @Content(schema = @Schema(implementation = SharedModel.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "No hay modelo destacado actualmente"
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Error interno al obtener el modelo destacado"
-            )
-    })
     public Mono<ServerResponse> getHighlightedModel(ServerRequest request) {
         return galleryService.getHighlightedModel()
                 .switchIfEmpty(Mono.error(new ModelNotFoundException("No hay jugador destacado actualmente"))) // Lanzar error si no se encuentra el modelo destacado
@@ -148,39 +62,6 @@ public class GalleryHandler {
                 });
     }
 
-    @Operation(
-            summary = "Obtener usuarios que compartieron un personaje",
-            description = "Devuelve los IDs de jugadores que han compartido públicamente el modelo de un personaje específico.",
-            operationId = "getSharedUsersByCharacter",
-            security = @SecurityRequirement(name = "bearerAuth"),
-            parameters = {
-                    @Parameter(
-                            name = "characterId",
-                            in = ParameterIn.PATH,
-                            required = true,
-                            description = "ID del personaje compartido"
-                    )
-            }
-    )
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Lista de usuarios obtenida correctamente",
-                    content = @Content(schema = @Schema(implementation = String.class))
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Parámetro 'characterId' faltante o inválido"
-            ),
-            @ApiResponse(
-                    responseCode = "403",
-                    description = "Acceso denegado: se requiere rol ADMIN"
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Error interno al obtener los usuarios"
-            )
-    })
     public Mono<ServerResponse> getSharedUsersByCharacter(ServerRequest request) {
         String characterId = request.pathVariable("characterId");
 
@@ -201,36 +82,6 @@ public class GalleryHandler {
                 });
     }
 
-    @Operation(
-            summary = "Destacar un modelo compartido",
-            description = "Permite al ADMIN marcar un modelo como Jugador de la Semana. Solo accesible con rol ADMIN.",
-            operationId = "highlightModel",
-            requestBody = @RequestBody(
-                    required = true,
-                    description = "ID del modelo compartido a destacar",
-                    content = @Content(schema = @Schema(type = "string"), examples = {
-                            @ExampleObject(value = "68126f1f65068f20b327d42f")
-                    })
-            )
-    )
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Modelo destacado correctamente"
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "ID inválido"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Modelo no encontrado"
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Error interno al destacar el modelo"
-            )
-    })
     public Mono<ServerResponse> highlightModel(ServerRequest request) {
         return request.bodyToMono(String.class)
                 .filter(StringUtils::hasText)
@@ -251,44 +102,6 @@ public class GalleryHandler {
                 });
     }
 
-    @Operation(
-            summary = "Eliminar modelo compartido",
-            description = "Permite a un jugador o admin eliminar un modelo compartido.",
-            operationId = "deleteSharedModel",
-            security = @SecurityRequirement(name = "bearerAuth"),
-            parameters = {
-                    @Parameter(
-                            name = "sharedModelId",
-                            description = "ID del modelo compartido",
-                            required = true,
-                            in = ParameterIn.PATH,
-                            example = "68126f1f65068f20b327d42f"
-                    )
-            }
-    )
-
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "204",
-                    description = "Modelo eliminado correctamente"
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "sharedModelId inválido"
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Autenticación requerida"
-            ),
-            @ApiResponse(
-                    responseCode = "403",
-                    description = "No autorizado para eliminar este modelo"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Modelo no encontrado"
-            )
-    })
     public Mono<ServerResponse> deleteSharedModel(ServerRequest request) {
         String sharedModelId = request.pathVariable("sharedModelId");
 

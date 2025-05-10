@@ -16,45 +16,6 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 public class GalleryRouterConfig {
 
     @Bean
-    @RouterOperations({
-            @RouterOperation(
-                    path = "/gallery",
-                    method = RequestMethod.GET,
-                    beanClass = GalleryHandler.class,
-                    beanMethod = "getPublicGallery"
-            ),
-            @RouterOperation(
-                    path = "/gallery/share",
-                    method = RequestMethod.POST,
-                    beanClass = GalleryHandler.class,
-                    beanMethod = "shareModel"
-            ),
-            @RouterOperation(
-                    path = "/gallery/highlighted",
-                    method = RequestMethod.GET,
-                    beanClass = GalleryHandler.class,
-                    beanMethod = "getHighlightedModel"
-            ),
-            @RouterOperation(
-                    path = "/gallery/character/{characterId}",
-                    method = RequestMethod.GET,
-                    beanClass = GalleryHandler.class,
-                    beanMethod = "getSharedUsersByCharacter"
-            ),
-            @RouterOperation(
-                    path = "/gallery/highlighted",
-                    method = RequestMethod.PUT,
-                    beanClass = GalleryHandler.class,
-                    beanMethod = "highlightModel"
-            ),
-            @RouterOperation(
-                    path = "/gallery/{sharedModelId}",
-                    method = RequestMethod.DELETE,
-                    beanClass = GalleryHandler.class,
-                    beanMethod = "deleteSharedModel"
-            ),
-
-    })
     public RouterFunction<ServerResponse> galleryRoutes(GalleryHandler galleryHandler) {
         return RouterFunctions.route()
                 .GET("/gallery", galleryHandler::getPublicGallery)

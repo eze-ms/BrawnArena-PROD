@@ -19,33 +19,6 @@ import static org.springframework.web.reactive.function.server.RouterFunctions.r
 public class BuildRouterConfig {
 
     @Bean
-    @RouterOperations({
-            @RouterOperation(
-                    path = "/builds/start",
-                    method = RequestMethod.POST,
-                    beanClass = BuildHandler.class,
-                    beanMethod = "startBuild"
-            ),
-            @RouterOperation(
-                    path = "/builds/validate",
-                    method = RequestMethod.POST,
-                    beanClass = BuildHandler.class,
-                    beanMethod = "validateBuild"
-            ),
-            @RouterOperation(
-                    path = "/builds/history",
-                    method = RequestMethod.GET,
-                    beanClass = BuildHandler.class,
-                    beanMethod = "getBuildHistory"
-            ),
-            @RouterOperation(
-                    path = "/builds/pending",
-                    method = RequestMethod.GET,
-                    beanClass = BuildHandler.class,
-                    beanMethod = "getPendingBuild"
-            )
-    })
-
     public RouterFunction<ServerResponse> buildRoutes(BuildHandler handler) {
         return route()
                 .POST("/builds/start", handler::startBuild)
