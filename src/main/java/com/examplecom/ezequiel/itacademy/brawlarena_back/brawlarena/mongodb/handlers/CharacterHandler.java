@@ -242,10 +242,14 @@ public class CharacterHandler {
         return characterRepository.findAll()
                 .collectList()
                 .flatMap(characters -> {
-                    characters.forEach(c -> System.out.println(">> Coste: " + c.getName() + " → " + c.getCost()));
+                    characters.forEach(c -> System.out.println(
+                            ">> " + c.getName() + " | cost: " + c.getCost() +
+                                    " (" + (c.getCost() != null ? c.getCost().getClass().getSimpleName() : "null") + ")"
+                    ));
                     return ServerResponse.ok().bodyValue(characters);
                 });
     }
+
 
 
 
