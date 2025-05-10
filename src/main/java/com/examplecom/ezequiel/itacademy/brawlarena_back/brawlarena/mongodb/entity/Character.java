@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 
 import java.util.List;
@@ -30,8 +31,14 @@ public class Character {
     @JsonDeserialize(contentUsing = PowerDeserializer.class)
     private List<Power> powers;
     private String imageUrl;
+
+    @Field("cost")
     private Integer cost;
     private String gameImageUrl;
+
+    public Integer getCost() {
+        return cost;
+    }
 
 }
 
