@@ -3,6 +3,7 @@ package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.handl
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.common.constant.Role;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.dto.LoginRequest;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.entity.User;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.service.UserService;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.security.JwtService;
@@ -83,25 +84,36 @@ public class AuthHandler {
             }
     )
     public Mono<ServerResponse> registerUser(ServerRequest request) {
-        return request.bodyToMono(User.class)
+        return request.bodyToMono(LoginRequest.class)
                 .doOnNext(user -> logger.info("Registrando nuevo usuario: {}", user))
-                .flatMap(user ->
-                        characterRepository.findAll()
-                                .filter(character -> character.getCost() == 0)
-                                .map(character -> character.getId())
-                                .collectList()
-                                .flatMap(freeIds -> {
-                                    try {
-                                        ObjectMapper objectMapper = new ObjectMapper();
-                                        user.setCharacterIds(objectMapper.writeValueAsString(freeIds));
-                                    } catch (Exception e) {
-                                        logger.error("Error al serializar personajes gratuitos: {}", e.getMessage());
-                                        return Mono.error(new RuntimeException("Error al preparar el registro del usuario"));
-                                    }
-                                    return userService.save(user);
-                                })
-                )
+                .flatMap(dto -> {
+                    String nickname = dto.nickname();
+                    String password = dto.password();
 
+                    return characterRepository.findAll()
+                            .filter(character -> character.getCost() == 0)
+                            .map(Character::getId)
+                            .collectList()
+                            .flatMap(freeIds -> {
+                                try {
+                                    ObjectMapper objectMapper = new ObjectMapper();
+                                    String characterIdsJson = objectMapper.writeValueAsString(freeIds);
+
+                                    User newUser = User.builder()
+                                            .nickname(nickname)
+                                            .password(password)
+                                            .tokens(50)
+                                            .role("USER")
+                                            .characterIds(characterIdsJson)
+                                            .build();
+
+                                    return userService.save(newUser);
+                                } catch (Exception e) {
+                                    logger.error("Error al serializar personajes gratuitos: {}", e.getMessage());
+                                    return Mono.error(new RuntimeException("Error al preparar el registro del usuario"));
+                                }
+                            });
+                })
                 .doOnNext(savedUser -> logger.info("Usuario registrado exitosamente: {}", savedUser))
                 .flatMap(savedUser -> ServerResponse.status(HttpStatus.CREATED).bodyValue(savedUser))
                 .doOnError(e -> logger.error("Error al registrar el usuario: {}", e.getMessage()))

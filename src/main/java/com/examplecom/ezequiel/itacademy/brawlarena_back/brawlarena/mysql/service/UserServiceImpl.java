@@ -60,9 +60,6 @@ public class UserServiceImpl implements UserService {
                 })
                 .switchIfEmpty(Mono.defer(() -> {
                     logger.info("Registrando nuevo usuario: {}", user.getNickname());
-                    user.setPassword(passwordEncoder.encode(user.getPassword()));
-                    user.setRole("USER");
-                    user.setTokens(50);
                     return userRepository.save(user);
                 }))
                 .doOnNext(savedUser -> logger.info("Usuario guardado: {}", savedUser))
