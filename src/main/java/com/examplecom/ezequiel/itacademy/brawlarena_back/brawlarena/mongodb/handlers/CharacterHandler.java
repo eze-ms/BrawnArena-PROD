@@ -240,11 +240,13 @@ public class CharacterHandler {
 
     public Mono<ServerResponse> getFreeCharacters(ServerRequest request) {
         return characterRepository.findAll()
-                .doOnNext(c -> logger.info("Coste personaje: {}", c.getCost()))
-                .filter(c -> c.getCost() == 0)
                 .collectList()
-                .flatMap(list -> ServerResponse.ok().bodyValue(list));
+                .flatMap(characters -> {
+                    characters.forEach(c -> System.out.println(">> Coste: " + c.getName() + " → " + c.getCost()));
+                    return ServerResponse.ok().bodyValue(characters);
+                });
     }
+
 
 
 }
