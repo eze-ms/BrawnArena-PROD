@@ -1,30 +1,17 @@
 package com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.handlers;
 
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.CharacterNotFoundException;
-import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.exception.UserNotFoundException;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.CharacterResponse;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.CharacterUpdateRequest;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.dto.PieceAssignmentDTO;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Character;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.entity.Piece;
+import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.CharacterRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.repository.PieceRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mongodb.service.CharacterService;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.mysql.repository.UserRepository;
 import com.examplecom.ezequiel.itacademy.brawlarena_back.brawlarena.security.JwtService;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
@@ -34,12 +21,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 @Component
@@ -52,6 +36,7 @@ public class CharacterHandler {
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final PieceRepository pieceRepository;
+    private final CharacterRepository characterRepository;
 
 
     public CharacterHandler(
@@ -59,13 +44,15 @@ public class CharacterHandler {
             JwtService jwtService,
             UserRepository userRepository,
             ObjectMapper objectMapper,
-            PieceRepository pieceRepository
+            PieceRepository pieceRepository,
+            CharacterRepository characterRepository
     ) {
         this.characterService = characterService;
         this.jwtService = jwtService;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
         this.pieceRepository = pieceRepository;
+        this.characterRepository = characterRepository;
     }
 
 
@@ -86,28 +73,7 @@ public class CharacterHandler {
         );
     }
 
-    @Operation(
-            summary = "Obtener todos los personajes",
-            description = "Devuelve la lista completa de personajes disponibles en el juego, marcando cuáles están desbloqueados por el jugador autenticado.",
-            operationId = "getAllCharacters"
-    )
-    @ApiResponses(
-            value = {
-                    @ApiResponse(
-                            responseCode = "200",
-                            description = "Personajes obtenidos correctamente.",
-                            content = @Content(schema = @Schema(implementation = CharacterResponse.class))
-                    ),
-                    @ApiResponse(
-                            responseCode = "204",
-                            description = "No hay personajes disponibles."
-                    ),
-                    @ApiResponse(
-                            responseCode = "500",
-                            description = "Error interno al recuperar personajes."
-                    )
-            }
-    )
+
     public Mono<ServerResponse> getAllCharacters(ServerRequest request) {
         return characterService.getAllCharacters()
                 .map(this::mapToPublicResponse)
@@ -132,32 +98,7 @@ public class CharacterHandler {
         );
     }
 
-    @Operation(
-            summary = "Desbloquear personaje",
-            description = "Permite desbloquear un personaje específico para el jugador autenticado mediante su ID.",
-            operationId = "unlockCharacter",
-            security = @SecurityRequirement(name = "bearerAuth")
-    )
-    @ApiResponses(
-            value = {
-                    @ApiResponse(
-                            responseCode = "200",
-                            description = "Personaje desbloqueado correctamente o ya estaba desbloqueado"
-                    ),
-                    @ApiResponse(
-                            responseCode = "400",
-                            description = "Falta el parámetro 'characterId'"
-                    ),
-                    @ApiResponse(
-                            responseCode = "404",
-                            description = "Personaje no encontrado"
-                    ),
-                    @ApiResponse(
-                            responseCode = "500",
-                            description = "Error interno al intentar desbloquear el personaje"
-                    )
-            }
-    )
+
     public Mono<ServerResponse> getCharacterId(ServerRequest request) {
         return request.principal()
                 .cast(Authentication.class)
@@ -175,40 +116,7 @@ public class CharacterHandler {
                 });
     }
 
-    @Operation(
-            summary = "Desbloquear personaje",
-            description = "Permite desbloquear un personaje específico para el jugador autenticado mediante su ID.",
-            operationId = "unlockCharacter",
-            security = @SecurityRequirement(name = "bearerAuth"),
-            parameters = {
-                    @Parameter(
-                            name = "characterId",
-                            in = ParameterIn.QUERY,
-                            required = true,
-                            description = "ID del personaje que se desea desbloquear"
-                    )
-            }
-    )
-    @ApiResponses(
-            value = {
-                    @ApiResponse(
-                            responseCode = "200",
-                            description = "Personaje desbloqueado correctamente o ya estaba desbloqueado"
-                    ),
-                    @ApiResponse(
-                            responseCode = "400",
-                            description = "Falta el parámetro 'characterId'"
-                    ),
-                    @ApiResponse(
-                            responseCode = "404",
-                            description = "Personaje no encontrado"
-                    ),
-                    @ApiResponse(
-                            responseCode = "500",
-                            description = "Error interno al intentar desbloquear el personaje"
-                    )
-            }
-    )
+
     public Mono<ServerResponse> unlockCharacter(ServerRequest request) {
         String characterId = request.queryParam("characterId")
                 .orElse(null);
@@ -234,36 +142,7 @@ public class CharacterHandler {
                 });
     }
 
-    @Operation(
-            summary = "Obtener detalles de un personaje",
-            description = "Devuelve los detalles completos de un personaje específico a partir de su ID.",
-            operationId = "getCharacterDetail",
-            security = @SecurityRequirement(name = "bearerAuth"),
-            parameters = {
-                    @Parameter(
-                            in = ParameterIn.PATH,
-                            name = "id",
-                            required = true,
-                            description = "ID del personaje a consultar"
-                    )
 
-            }
-    )
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Detalles del personaje encontrados",
-                    content = @Content(schema = @Schema(implementation = Character.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Personaje no encontrado"
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Error interno al recuperar detalles del personaje"
-            )
-    })
     public Mono<ServerResponse> getCharacterDetail(ServerRequest request) {
         String characterId = request.pathVariable("id");
         logger.info("Solicitud recibida: detalles del personaje con ID {}", characterId);
@@ -272,27 +151,7 @@ public class CharacterHandler {
                 .flatMap(character -> ServerResponse.ok().bodyValue(character));
     }
 
-    @Operation(
-            summary = "Actualizar personaje",
-            description = "Actualiza los datos de un personaje existente mediante su ID.",
-            operationId = "updateCharacter",
-            security = @SecurityRequirement(name = "bearerAuth")
-    )
-    @ApiResponses(
-            value = {
-                    @ApiResponse(
-                            responseCode = "200",
-                            description = "Personaje actualizado correctamente"
-                    ),
-                    @ApiResponse(
-                            responseCode = "404",
-                            description = "Personaje no encontrado"
-                    ),
-                    @ApiResponse(
-                            responseCode = "500",
-                            description = "Error interno al actualizar personaje"
-                    )
-    })
+
     public Mono<ServerResponse> updateCharacter(ServerRequest request) {
         String characterId = request.pathVariable("id");
 
@@ -307,50 +166,7 @@ public class CharacterHandler {
                 .doOnError(error -> logger.error("Error al actualizar personaje {}: {}", characterId, error.getMessage()));
     }
 
-    @Operation(
-            summary = "Asignar piezas a un personaje",
-            description = "Embebe una lista de piezas existentes al personaje indicado por ID.",
-            operationId = "assignPiecesToCharacter",
-            security = @SecurityRequirement(name = "bearerAuth"),
-            parameters = {
-                    @Parameter(
-                            in = ParameterIn.PATH,
-                            name = "id",
-                            required = true,
-                            description = "ID del personaje a consultar"
-                    )
 
-            },
-            requestBody = @RequestBody(
-                    description = "Lista de IDs de piezas a asignar",
-                    required = true,
-                    content = @Content(
-                            mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = String.class, type = "array")
-                    )
-            )
-    )
-    @ApiResponses(
-            value = {
-                    @ApiResponse(
-                            responseCode = "200",
-                            description = "Piezas asignadas correctamente",
-                            content = @Content(schema = @Schema(implementation = Piece.class))
-                    ),
-                    @ApiResponse(
-                            responseCode = "400",
-                            description = "Lista vacía o error de entrada"
-                    ),
-                    @ApiResponse(
-                            responseCode = "404",
-                            description = "Personaje no encontrado"
-                    ),
-                    @ApiResponse(
-                            responseCode = "500",
-                            description = "Error interno al asignar piezas"
-                    )
-            }
-    )
     public Mono<ServerResponse> assignPiecesToCharacter(ServerRequest request) {
         String characterId = request.pathVariable("id");
         logger.info("Solicitud recibida: asignar piezas al personaje con ID {}", characterId);
@@ -372,29 +188,7 @@ public class CharacterHandler {
                 });
     }
 
-    @Operation(
-            summary = "Asignar piezas con poderes a un personaje",
-            description = "Asocia una lista de piezas a un personaje, cada una con su poder correspondiente.",
-            operationId = "assignPiecesWithPowers",
-            security = @SecurityRequirement(name = "bearerAuth"),
-            parameters = {
-                    @Parameter(
-                            in = ParameterIn.PATH,
-                            name = "id",
-                            required = true,
-                            description = "ID del personaje"
-                    )
-            },
-            requestBody = @RequestBody(
-                    required = true,
-                    description = "Lista de piezas con poderes",
-                    content = @Content(
-                            mediaType = "application/json",
-                            array = @ArraySchema(schema = @Schema(implementation = PieceAssignmentDTO.class))
-                    )
-            )
 
-    )
     public Mono<ServerResponse> assignPiecesWithPowers(ServerRequest request) {
         String characterId = request.pathVariable("id");
 
@@ -439,6 +233,16 @@ public class CharacterHandler {
                 .onErrorResume(IllegalArgumentException.class, e ->
                         ServerResponse.badRequest().bodyValue(e.getMessage()))
                 .doOnError(error -> logger.error("Error al asignar piezas con poderes: {}", error.getMessage()));
+    }
+
+    public Mono<ServerResponse> testMongoConnection(ServerRequest request) {
+        return characterRepository.findAll()
+                .collectList()
+                .flatMap(characters -> ServerResponse.ok().bodyValue(characters))
+                .onErrorResume(e -> {
+                    logger.error("Error al conectar con Mongo: {}", e.getMessage());
+                    return ServerResponse.status(500).bodyValue("Error al conectar con Mongo");
+                });
     }
 
 }
